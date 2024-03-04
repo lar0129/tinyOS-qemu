@@ -31,7 +31,7 @@ void init_user_and_go() {
   // Lab1-8: argv
   // Lab2-1: proc
   // Lab3-2: add cwd
-  uint32_t eip = load_elf(NULL, "loaduser");
+  uint32_t eip = load_elf(NULL, "loaduser"); // 加载用户程序
   assert(eip != -1);
-  ((void(*)())eip)();
+  ((void(*)())eip)(); // 跳转入口地址
 }

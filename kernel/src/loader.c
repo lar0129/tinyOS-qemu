@@ -9,8 +9,10 @@
 uint32_t load_elf(PD *pgdir, const char *name) {
   Elf32_Ehdr elf;
   Elf32_Phdr ph;
+  // 打开名字为name的文件，返回其对应的inode_t*（可以类比为FILE*，返回NULL如果文件不存在）
   inode_t *inode = iopen(name, TYPE_NONE);
   if (!inode) return -1;
+  // 从inode代表的文件的'0'偏移量处，读取len字节到内存的elf里
   iread(inode, 0, &elf, sizeof(elf));
   if (*(uint32_t*)(&elf) != 0x464c457f) { // check ELF magic number
     iclose(inode);
@@ -19,9 +21,13 @@ uint32_t load_elf(PD *pgdir, const char *name) {
   for (int i = 0; i < elf.e_phnum; ++i) {
     iread(inode, elf.e_phoff + i * sizeof(ph), &ph, sizeof(ph));
     if (ph.p_type == PT_LOAD) {
-      // Lab1-2: Load segment to physical memory
+      // TODO: Lab1-2: Load segment to physical memory
+      // uint32_t elfAddr = (uint32_t)(&elf);是不对的，elf是临时变量
+      iread(inode, ph.p_offset, (void *)ph.p_vaddr, ph.p_filesz);
+      memset((void *)((uint32_t)&elf+ph.p_offset+ph.p_filesz), 0, ph.p_memsz - ph.p_filesz);
+    
       // Lab1-4: Load segment to virtual memory
-      TODO();
+      // 原来有TODO();
     }
   }
   // TODO: Lab1-4 alloc stack memory in pgdir
