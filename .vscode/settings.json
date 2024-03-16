@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "Jenkinsfile": "jenkins",
+        "klib.h": "c",
+        "unistd.h": "c"
+    }
+}

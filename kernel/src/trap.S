@@ -52,12 +52,13 @@ trap:
   movw  %ax, %es
   pushl %esp                  # esp is treated as a parameter
   call  irq_handle            # should never return
+  # 要么因为是不该有的中断（比如异常）直接陷入死循环，要么调用irq_iret这个函数来进行中断返回流程。
 .L0:
   jmp   .L0
 
 .globl irq_iret
 irq_iret:
-  movl 4(%esp), %eax
+  movl 4(%esp), %eax # 恢复esp
   movl %eax, %esp
   popl %eax
   movw %ax, %ds

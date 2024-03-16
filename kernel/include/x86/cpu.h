@@ -124,6 +124,7 @@ static inline int xchg(int *addr, int newval) {
   return result;
 }
 
+// 为协程设置新的堆栈指针。将参数存储在新堆栈上（可能是用于入口函数）。跳转到新协程的入口函数，有效地切换上下文。
 static inline void stack_switch_call(void *sp, void *entry, uintptr_t arg) {
   asm volatile (
     "movl %0, %%esp; movl %2, 4(%0); jmp *%1" : : "b"((uintptr_t)sp - 8), "d"(entry), "a"(arg)

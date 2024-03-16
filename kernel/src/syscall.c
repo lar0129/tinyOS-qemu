@@ -14,21 +14,25 @@ extern void *syscall_handle[NR_SYS];
 
 void do_syscall(Context *ctx) {
   // TODO: Lab1-5 call specific syscall handle and set ctx register
-  int sysnum = 0;
-  uint32_t arg1 = 0;
-  uint32_t arg2 = 0;
-  uint32_t arg3 = 0;
-  uint32_t arg4 = 0;
-  uint32_t arg5 = 0;
+  int sysnum = ctx->eax;
+  uint32_t arg1 = ctx->ebx;
+  uint32_t arg2 = ctx->ecx;
+  uint32_t arg3 = ctx->edx;
+  uint32_t arg4 = ctx->esi;
+  uint32_t arg5 = ctx->edi;
   int res;
   if (sysnum < 0 || sysnum >= NR_SYS) {
     res = -1;
   } else {
+    // 函数指针，返回int。数组syscall_handle中存放了所有系统调用的处理函数
     res = ((syshandle_t)(syscall_handle[sysnum]))(arg1, arg2, arg3, arg4, arg5);
   }
   ctx->eax = res;
 }
 
+// buf是虚拟地址，count是字节数
+// 页目录PD里不仅有给内核用的PHY_MEM以下的恒等映射，还有用户程序的那块虚拟内存，
+// 因此在操作系统里也可以解指向用户程序地址的指针buf。
 int sys_write(int fd, const void *buf, size_t count) {
   // TODO: rewrite me at Lab3-1
   return serial_write(buf, count);
@@ -42,13 +46,19 @@ int sys_read(int fd, void *buf, size_t count) {
 int sys_brk(void *addr) {
   // TODO: Lab1-5
   static size_t brk = 0; // use brk of proc instead of this in Lab2-1
-  size_t new_brk = PAGE_UP(addr);
+  size_t new_brk = PAGE_UP(addr);  // 保证我们操作系统认为的program break一定不小于用户程序实际的program break
   if (brk == 0) {
     brk = new_brk;
-  } else if (new_brk > brk) {
-    TODO();
+  } else if (new_brk > brk) { // 说明用户程序需要增长堆区
+    PD *pd_curr =vm_curr();
+    // 创建[brk, new_brk)这段虚拟内存的映射
+    vm_map(pd_curr, brk, new_brk - brk, 0x7);
+    brk = new_brk;
   } else if (new_brk < brk) {
     // can just do nothing
+    PD *pd_curr =vm_curr();
+    vm_unmap(pd_curr, new_brk, brk - new_brk);
+    brk = new_brk;
   }
   return 0;
 }

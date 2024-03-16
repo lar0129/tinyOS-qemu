@@ -102,15 +102,23 @@ void init_cte() {
 }
 
 void irq_handle(Context *ctx) {
+  // 异常的中断号irq是0~16，外部中断的中断号是32~47，系统调用的中断号和Linux一样规定为0x80（128）
   if (ctx->irq <= 16) {
     // just ignore me now, usage is in Lab1-6
     exception_debug_handler(ctx);
   }
+  // printf("\nInterrupt irq: %d\n", ctx->irq);
   switch (ctx->irq) {
   // TODO: Lab1-5 handle pagefault and syscall
   // TODO: Lab1-7 handle serial and timer
   // TODO: Lab2-1 handle yield
   default: assert(ctx->irq >= T_IRQ0 && ctx->irq < T_IRQ0 + NR_INTR);
+  case EX_PF:
+    vm_pgfault((size_t)get_cr2, ctx->errcode);
+    break;
+  case EX_SYSCALL:
+    do_syscall(ctx);
+    break;
   }
   irq_iret(ctx);
 }

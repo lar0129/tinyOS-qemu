@@ -18,19 +18,39 @@ uint32_t load_elf(PD *pgdir, const char *name) {
     iclose(inode);
     return -1;
   }
+  PD * pd_curr = vm_curr();
   for (int i = 0; i < elf.e_phnum; ++i) {
     iread(inode, elf.e_phoff + i * sizeof(ph), &ph, sizeof(ph));
     if (ph.p_type == PT_LOAD) {
       // TODO: Lab1-2: Load segment to physical memory
       // uint32_t elfAddr = (uint32_t)(&elf);是不对的，elf是临时变量
-      iread(inode, ph.p_offset, (void *)ph.p_vaddr, ph.p_filesz);
-      memset((void *)((uint32_t)&elf+ph.p_offset+ph.p_filesz), 0, ph.p_memsz - ph.p_filesz);
+      // 对于p_type == PT_LOAD的表项，将ELF文件中起始于p_offset，大小为p_filesz字节的数据拷贝到内存中起始于p_vaddr的位置
+      // 并将内存中剩余的p_memsz - p_filesz字节的内容清零
+
+      // iread(inode, ph.p_offset, (void *)ph.p_vaddr, ph.p_filesz);
+      // memset((void *)((void *)ph.p_vaddr+ph.p_filesz), 0, ph.p_memsz - ph.p_filesz);
     
-      // Lab1-4: Load segment to virtual memory
-      // 原来有TODO();
+      // TODO: Lab1-4: Load segment to virtual memory
+
+       // p_flags，如果它的PF_W位为1（即(p_flags & PF_W) != 0），就代表这个段是可写的，否则就是只读
+      int prot =  (ph.p_flags & PF_W) ? 0x7 : 0x5;
+      // 将这一段所需要的虚拟内存（即[p_vaddr, p_vaddr+p_memsz)）添加到pgdir管理的映射，你可以使用前面实现的vm_map函数
+      vm_map(pgdir, ph.p_vaddr, ph.p_memsz, prot);
+
+      // 将虚拟地址转换为实际映射到的物理地址，并将这一段的内容加载到物理地址中.
+        // 不论是内核页目录还是用户页目录，都将虚拟内存[0, PHY_MEM)映射到物理内存[0, PHY_MEM)（恒等映射）
+        // 对于用户程序，我们改为链接到0x08048000，这个地址高于PHY_MEM，这样就不会和[0, PHY_MEM)这块恒等映射冲突了
+        // 至于这块虚拟内存映射到物理内存的哪里，由操作系统说了算。
+      set_cr3(pgdir);
+      iread(inode, ph.p_offset, (void *)ph.p_vaddr, ph.p_filesz);
+      memset((void*)((uint32_t)(ph.p_vaddr) + ph.p_filesz), 0, ph.p_memsz-ph.p_filesz);
     }
   }
   // TODO: Lab1-4 alloc stack memory in pgdir
+  // 给pgdir映射上[0xbffff000, 0xc0000000)（即[USR_MEM-PGSIZE, USR_MEM)）这一块虚拟内存作为用户程序的栈。
+  set_cr3(pd_curr);
+  
+  vm_map(pgdir, USR_MEM - PGSIZE, PGSIZE, 0x7);
   iclose(inode);
   return elf.e_entry;
 }
@@ -63,13 +83,18 @@ uint32_t load_arg(PD *pgdir, char *const argv[]) {
   return USR_MEM - PGSIZE + ADDR2OFF(stack_top);
 }
 
+// ctx参数指向我们试图手动构造的，用于返回到用户态的中断上下文
 int load_user(PD *pgdir, Context *ctx, const char *name, char *const argv[]) {
   size_t eip = load_elf(pgdir, name);
   if (eip == -1) return -1;
-  ctx->cs = USEL(SEG_UCODE);
-  ctx->ds = USEL(SEG_UDATA);
-  ctx->eip = eip;
+  
+  ctx->cs = USEL(SEG_UCODE); // 用户态的用户代码段
+  ctx->ds = USEL(SEG_UDATA); // 用户态的用户数据段
+  ctx->eip = eip; // 用户程序的入口地址
   // TODO: Lab1-6 init ctx->ss and esp
+  ctx->ss = USEL(SEG_UDATA); // 用户态的数据段，即用户栈基址
+  ctx->esp = USR_MEM-16; // 用户栈栈顶
+
   ctx->eflags = 0x002; // TODO: Lab1-7 change me to 0x202
   return 0;
 }
