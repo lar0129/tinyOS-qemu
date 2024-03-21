@@ -58,7 +58,7 @@ trap:
 
 .globl irq_iret
 irq_iret:
-  movl 4(%esp), %eax # 恢复esp
+  movl 4(%esp), %eax # 恢复esp3
   movl %eax, %esp
   popl %eax
   movw %ax, %ds

@@ -41,12 +41,13 @@ void init_user_and_go() {
 
   // Lab1-6: ctx, irq_iret
   PD *pgdir = vm_alloc();
-  Context ctx; // 用于返回用户态
+  Context ctx; // 中断上下文用于返回用户态
   assert(load_user(pgdir, &ctx, "systest", NULL) == 0);
   set_cr3(pgdir);
-
+  // 准备好操作系统的内核栈，存在tss里
   // tss告诉CPU我们的内核栈的栈顶在哪
   set_tss(KSEL(SEG_KDATA), (uint32_t)kalloc() + PGSIZE); //kalloc一个内核栈,用于用户态到内核态的中断
+  // 利用构造的中断上下文“假装”中断返回，以此进入用户程序
   irq_iret(&ctx);
 
   // Lab1-8: argv

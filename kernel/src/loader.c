@@ -83,11 +83,12 @@ uint32_t load_arg(PD *pgdir, char *const argv[]) {
   return USR_MEM - PGSIZE + ADDR2OFF(stack_top);
 }
 
-// ctx参数指向我们试图手动构造的，用于返回到用户态的中断上下文
+// 1.加载用户程序
+// 2.保存用户栈的位置在中断上下文。中断返回时要恢复
 int load_user(PD *pgdir, Context *ctx, const char *name, char *const argv[]) {
   size_t eip = load_elf(pgdir, name);
   if (eip == -1) return -1;
-  
+
   ctx->cs = USEL(SEG_UCODE); // 用户态的用户代码段
   ctx->ds = USEL(SEG_UDATA); // 用户态的用户数据段
   ctx->eip = eip; // 用户程序的入口地址
