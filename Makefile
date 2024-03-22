@@ -5,7 +5,7 @@ default: all
 .PHONY: clean clean-all clean-fs all qemu qemu-gdb gdb print-gdbport grade submit pack
 
 # REMEMBER TO MAKE CLEAN AFTER CHANGE ME!
-STAGE  := phase2
+STAGE  := phase1
 STAGES := phase1 phase2 phase3 phase4 phase5 phase6
 
 ifeq ($(filter $(STAGES), $(STAGE)), ) # STAGE must be valid
@@ -50,7 +50,7 @@ grade:
 	grade/grade-$(STAGE)
 
 submit:
-	python3 ok --config okconfig/$(STAGE).ok --submit
+	python3 ok --insecure --config okconfig/$(STAGE).ok --submit
 
 pack:
 	mkdir -p build/submit
