@@ -5,7 +5,7 @@ default: all
 .PHONY: clean clean-all clean-fs all qemu qemu-gdb gdb print-gdbport grade submit pack
 
 # REMEMBER TO MAKE CLEAN AFTER CHANGE ME!
-STAGE  := phase1
+STAGE  := phase2
 STAGES := phase1 phase2 phase3 phase4 phase5 phase6
 
 ifeq ($(filter $(STAGES), $(STAGE)), ) # STAGE must be valid
@@ -24,6 +24,9 @@ LDFLAGS := -m elf_i386
 QEMU_FLAGS := -no-reboot -serial stdio -display none#-nographic
 
 all: $(IMAGE)
+
+log-in:
+	python3 ok --insecure --authenticate
 
 clean:
 	rm -rf $(OBJDIR)/boot $(OBJDIR)/kernel $(OBJDIR)/user $(OBJDIR)/utils $(OBJDIR)/*.img $(OBJDIR)/*.backup

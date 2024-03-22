@@ -96,6 +96,6 @@ int load_user(PD *pgdir, Context *ctx, const char *name, char *const argv[]) {
   ctx->ss = USEL(SEG_UDATA); // 用户态的数据段，即用户栈基址
   ctx->esp = USR_MEM-16; // 用户栈栈顶
 
-  ctx->eflags = 0x002; // TODO: Lab1-7 change me to 0x202
+  ctx->eflags = 0x202; // TODO: Lab1-7 change me to 0x202
   return 0;
 }

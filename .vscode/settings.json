@@ -2,6 +2,9 @@
     "files.associations": {
         "Jenkinsfile": "jenkins",
         "klib.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "vme.h": "c",
+        "cte.h": "c",
+        "lib.h": "c"
     }
 }

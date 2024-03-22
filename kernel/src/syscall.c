@@ -15,6 +15,7 @@ extern void *syscall_handle[NR_SYS];
 void do_syscall(Context *ctx) {
   // TODO: Lab1-5 call specific syscall handle and set ctx register
   int sysnum = ctx->eax;
+  printf("\nsyscall num: %d\n", sysnum);
   uint32_t arg1 = ctx->ebx;
   uint32_t arg2 = ctx->ecx;
   uint32_t arg3 = ctx->edx;
@@ -64,7 +65,14 @@ int sys_brk(void *addr) {
 }
 
 void sys_sleep(int ticks) {
-  TODO(); // Lab1-7
+  // 在操作系统睡ticks刻时间，然后再回到用户程序。
+  // // TODO(); // Lab1-7
+  uint32_t cur = get_tick();
+  while (get_tick() - cur < ticks)
+  {
+    sti(); hlt(); cli();
+  }
+  
 }
 
 int sys_exec(const char *path, char *const argv[]) {

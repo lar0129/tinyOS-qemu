@@ -88,8 +88,13 @@ void serial_handle() {
 char getchar() {
   char ch;
   while ((ch = pop_front()) == 0) {
-    serial_handle();
-    //sti(); hlt(); cli(); // change to me in Lab1-7
+    // 轮询：不断检查串口是否有输入
+    // serial_handle();
+
+    // 等待中断：
+    // 这个三连——sti指令开中断，hlt指令让CPU睡大觉直到出现中断，中断处理完后继续执行，cli指令关中断
+    // 因为我们操作系统大部分代码不能被打断，需要在关中断下执行。
+    sti(); hlt(); cli(); // change to me in Lab1-7
     //proc_yield(); // change to me in Lab2-1
   }
   // TODO: Lab2-4 rewrite getchar with sem, P(sem) then pop_front

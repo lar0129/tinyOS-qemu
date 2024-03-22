@@ -107,17 +107,25 @@ void irq_handle(Context *ctx) {
     // just ignore me now, usage is in Lab1-6
     exception_debug_handler(ctx);
   }
-  printf("\nInterrupt irq: %d\n", ctx->irq);
+  // printf("\nInterrupt irq: %d\n", ctx->irq);
   switch (ctx->irq) {
   // TODO: Lab1-5 handle pagefault and syscall
   // TODO: Lab1-7 handle serial and timer
   // TODO: Lab2-1 handle yield
-  default: assert(ctx->irq >= T_IRQ0 && ctx->irq < T_IRQ0 + NR_INTR);
   case EX_PF:
     vm_pgfault((size_t)get_cr2, ctx->errcode);
     break;
   case EX_SYSCALL:
     do_syscall(ctx);
+    break;
+  case T_IRQ0 + IRQ_COM1:
+    serial_handle();
+    break;
+  case T_IRQ0 + IRQ_TIMER:
+    timer_handle();
+    break;
+  default: 
+    assert(ctx->irq >= T_IRQ0 && ctx->irq < T_IRQ0 + NR_INTR);
     break;
   }
   irq_iret(ctx);

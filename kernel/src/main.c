@@ -16,7 +16,7 @@ int main() {
   init_fs();
   init_page(); // uncomment me at Lab1-4
   init_cte(); // uncomment me at Lab1-5
-  //init_timer(); // uncomment me at Lab1-7
+  init_timer(); // uncomment me at Lab1-7
   //init_proc(); // uncomment me at Lab2-1
   //init_dev(); // uncomment me at Lab3-1
 
@@ -42,7 +42,7 @@ void init_user_and_go() {
   // Lab1-6: ctx, irq_iret
   PD *pgdir = vm_alloc();
   Context ctx; // 中断上下文用于返回用户态
-  assert(load_user(pgdir, &ctx, "systest", NULL) == 0);
+  assert(load_user(pgdir, &ctx, "iotest", NULL) == 0);
   set_cr3(pgdir);
   // 准备好操作系统的内核栈，存在tss里
   // tss告诉CPU我们的内核栈的栈顶在哪
