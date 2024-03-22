@@ -40,9 +40,11 @@ void init_user_and_go() {
   // stack_switch_call((void*)(USR_MEM - 16), (void*)eip, 0);
 
   // Lab1-6: ctx, irq_iret
+  // 建了个页目录，建了个用于进入用户程序的中断上下文，加载用户程序，切换页目录，设置内核栈，最后通过中断返回进入用户程序
   PD *pgdir = vm_alloc();
   Context ctx; // 中断上下文用于返回用户态
-  assert(load_user(pgdir, &ctx, "iotest", NULL) == 0);
+  char *argv[] = {"sh1", NULL}; // test argv
+  assert(load_user(pgdir, &ctx, "sh1", argv) == 0);
   set_cr3(pgdir);
   // 准备好操作系统的内核栈，存在tss里
   // tss告诉CPU我们的内核栈的栈顶在哪

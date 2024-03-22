@@ -15,7 +15,7 @@ extern void *syscall_handle[NR_SYS];
 void do_syscall(Context *ctx) {
   // TODO: Lab1-5 call specific syscall handle and set ctx register
   int sysnum = ctx->eax;
-  printf("\nsyscall num: %d\n", sysnum);
+  // printf("\nsyscall num: %d\n", sysnum);
   uint32_t arg1 = ctx->ebx;
   uint32_t arg2 = ctx->ecx;
   uint32_t arg3 = ctx->edx;
@@ -75,8 +75,28 @@ void sys_sleep(int ticks) {
   
 }
 
+// 把当前程序替换成要执行的程序, path是程序名，argv是参数列表
 int sys_exec(const char *path, char *const argv[]) {
-  TODO(); // Lab1-8, Lab2-1
+  // // TODO(); // Lab1-8
+  PD *pgdir = vm_alloc(); //不用现在的页目录是因为path和argv还指向用户程序那部分的虚拟内存，并且还有继续执行原程序的可能
+  Context ctx;
+  // 接着调用load_user加载新用户程序到新页目录并初始化中断上下文，
+  // 如果load_user返回非0代表加载新程序失败，把新页目录释放掉然后直接返回-1，代表exec失败，继续执行原程序。
+  int ret = load_user(pgdir, &ctx, path, argv);
+  if(ret != 0) {
+    kfree(pgdir);
+    return -1;
+  }
+
+  // 如果load_user返回0，那么代表加载成功，接下来要执行的是新的程序，因此先调用vm_curr记录一下现在的页目录，
+  PD *pd_curr = vm_curr();
+  // 然后用set_cr3切换到新页目录，然后回收旧页目录，再用irq_iret和前面定义的上下文通过返回中断来进入新用户程序即可。
+  set_cr3(pgdir);
+  kfree(pd_curr);
+  irq_iret(&ctx);
+  // 内核栈处理：因为此时旧程序不会再被执行了，所以内核栈我们可以继续用现在的这个，不必更改。
+
+  // Lab2-1
 }
 
 int sys_getpid() {

@@ -8,7 +8,7 @@
             "defines": [],
             "intelliSenseMode": "linux-gcc-x86",
             "compileCommands": "${workspaceFolder}/compile_commands.json",
-            // "compilerPath": "/usr/bin/gcc"
+            "compilerPath": "/usr/bin/gcc"
         }
     ],
     "version": 4

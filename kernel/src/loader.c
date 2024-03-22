@@ -59,26 +59,34 @@ uint32_t load_elf(PD *pgdir, const char *name) {
 
 uint32_t load_arg(PD *pgdir, char *const argv[]) {
   // Lab1-8: Load argv to user stack
-  char *stack_top = (char*)vm_walk(pgdir, USR_MEM - PGSIZE, 7) + PGSIZE;
+  char *stack_top = (char*)vm_walk(pgdir, USR_MEM - PGSIZE, 7) + PGSIZE; // 用户栈对应虚拟地址
   size_t argv_va[MAX_ARGS_NUM + 1];
   int argc;
   for (argc = 0; argv[argc]; ++argc) {
     assert(argc < MAX_ARGS_NUM);
     // push the string of argv[argc] to stack, record its va to argv_va[argc]
-    TODO();
+    // // TODO();
+    stack_top -= strlen(argv[argc]) + 1;
+    strcpy(stack_top, argv[argc]);
+    argv_va[argc] = USR_MEM - PGSIZE + ADDR2OFF(stack_top); // 记录argv[argc]的虚拟地址
   }
   argv_va[argc] = 0; // set last argv NULL
-  stack_top -= ADDR2OFF(stack_top) % 4; // align to 4 bytes
+  stack_top -= ADDR2OFF(stack_top) % 4; // align to 4 bytes 对齐
   for (int i = argc; i >= 0; --i) {
     // push the address of argv_va[argc] to stack to make argv array
     stack_top -= sizeof(size_t);
-    *(size_t*)stack_top = argv_va[i];
+    *(size_t*)stack_top = argv_va[i]; // 反向存4字节地址（大端）
   }
   // push the address of the argv array as argument for _start
-  TODO();
+  // // TODO();
+    size_t argv_va_addr = USR_MEM - PGSIZE + ADDR2OFF(stack_top);
+    stack_top -= sizeof(size_t);
+    *(size_t*)stack_top = argv_va_addr;
+
   // push argc as argument for _start
   stack_top -= sizeof(size_t);
   *(size_t*)stack_top = argc;
+
   stack_top -= sizeof(size_t); // a hole for return value (useless but necessary)
   return USR_MEM - PGSIZE + ADDR2OFF(stack_top);
 }
@@ -94,7 +102,9 @@ int load_user(PD *pgdir, Context *ctx, const char *name, char *const argv[]) {
   ctx->eip = eip; // 用户程序的入口地址
   // TODO: Lab1-6 init ctx->ss and esp
   ctx->ss = USEL(SEG_UDATA); // 用户态的数据段，即用户栈基址
-  ctx->esp = USR_MEM-16; // 用户栈栈顶
+  
+  // ctx->esp = USR_MEM-16; // 用户栈栈顶
+  ctx->esp = load_arg(pgdir, argv); // Load argv to user stack
 
   ctx->eflags = 0x202; // TODO: Lab1-7 change me to 0x202
   return 0;
