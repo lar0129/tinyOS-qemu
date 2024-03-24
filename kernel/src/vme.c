@@ -91,7 +91,8 @@ void kfree(void *ptr) {
   {
     panic("kfree: ptr not in kernel heap");
   }
-  assert(PAGE_DOWN((uint32_t)free_page_list-PGSIZE) >= KER_MEM);
+  assert(PAGE_DOWN((uint32_t)free_page_list) >= KER_MEM && PAGE_DOWN((uint32_t)free_page_list) < PHY_MEM);
+  assert(PAGE_DOWN((uint32_t)ptr) >= KER_MEM && PAGE_DOWN((uint32_t)ptr) < PHY_MEM);
 
   page_t *page = (page_t*)(PAGE_DOWN(ptr));
   for(int i = 4; i < PGSIZE; i++){
@@ -105,6 +106,7 @@ void kfree(void *ptr) {
 PD *vm_alloc() {
   // Lab1-4: alloc a new pgdir, map memory under PHY_MEM identityly
   // 先用kalloc申请一页作为页目录，然后可以利用已经做好映射的kpt，把前32个PDE对应到kpt的32个页表上
+  // 对内核（0-31项），一一映射
   PD *pgdir = kalloc();
   for(int i = 0; i < PHY_MEM / PT_SIZE ; i++){
     pgdir->pde[i].val = MAKE_PDE((uint32_t)&kpt[i], 3);
@@ -122,7 +124,7 @@ void vm_teardown(PD *pgdir) {
   // Lab1-4: free all pages mapping above PHY_MEM in pgdir, then free itself
   // you can just do nothing :)
   // 把pgdir这一页目录下下辖的所有页表，和所映射到的所有物理页全部kfree。
-  // 但是：前32个PDE对应的页表（即kpt）及其映射的物理页（即[0, PHY_MEM)）不要kfree
+  // 但是：前32个PDE对应的页表（即kpt）及其映射的物理页（即[0, PHY_MEM)）不要kfree（可以认为除了这些页表和物理页之外，其余页表和物理页都是kalloc出来的）
   for(int i =  PHY_MEM / PT_SIZE; i < NR_PDE ; i++){
     if (pgdir->pde[i].present == 1)
     {
@@ -182,7 +184,7 @@ void *vm_walk(PD *pgdir, size_t va, int prot) {
   // Lab1-4: translate va to pa  
   PTE *pte = vm_walkpte(pgdir, va, prot);
   // if prot&1 and prot voilation ((pte->val & prot & 7) != prot), call vm_pgfault
-  if (prot & 1 && (pte->val & prot & 7) != prot)
+  if ((prot & 1) && (pte->val & prot & 7) != prot)
   {
     vm_pgfault(va, 0);
   }
