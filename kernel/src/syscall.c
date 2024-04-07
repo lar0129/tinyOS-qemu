@@ -152,7 +152,7 @@ int sys_wait(int *status) {
   }
   int zombie_pid = zombie->pid;
   proc_free(zombie);
-  proc_curr()->child_num--;
+  (proc_curr()->child_num)--;
   return zombie_pid;
 
   

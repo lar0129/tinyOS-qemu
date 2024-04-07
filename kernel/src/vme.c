@@ -95,7 +95,7 @@ void kfree(void *ptr) {
   assert(PAGE_DOWN((uint32_t)ptr) >= KER_MEM && PAGE_DOWN((uint32_t)ptr) < PHY_MEM);
 
   page_t *page = (page_t*)(PAGE_DOWN(ptr));
-  for(int i = 4; i < PGSIZE; i++){
+  for(int i = 0; i < PGSIZE; i++){
     page->buf[i] = 0;
   }
   page->next = free_page_list;
@@ -196,7 +196,7 @@ void *vm_walk(PD *pgdir, size_t va, int prot) {
   {
     vm_pgfault(va, 0);
   }
-  
+  assert(va>=PHY_MEM);
   // if va is not mapped and !(prot&1), return NULL 没找到映射好的物理地址
   if ((int32_t)PTE2PG(*pte) == 0 && !(prot&1))
   {
@@ -283,15 +283,15 @@ void vm_copycurr(PD *pgdir) {
   // Lab2-2: copy memory mapped in curr pd to pgdir
   // 遍历[PHY_MEM, USR_MEM)范围内的虚拟页，用vm_walkpte尝试在当前页目录中找这个虚拟页对应的PTE，
   // 如果PTE存在且有效的话（即这个虚拟地址在当前页目录中存在映射），代表这一页需要复制并在pgdir中添加映射
-  for(size_t i = PHY_MEM; i < USR_MEM; i += PGSIZE){
-    PTE *pte = vm_walkpte(vm_curr(), i, 0);
+  for(size_t v_addr = PAGE_DOWN(PHY_MEM); v_addr < USR_MEM; v_addr += PGSIZE){
+    PTE *pte = vm_walkpte(vm_curr(), v_addr, 0);
     if(pte != NULL && pte->val & PTE_P){
       // 复制的时候，首先调用vm_map添加这一虚拟页在pgdir中的映射（注意这一页在当前页目录中的权限和在pgdir中的权限应该一致），
       // 然后用vm_walk或vm_walkpte查出其在pgdir中映射到的物理页，
       // 接着调用memcpy把原来虚拟页的内容复制到这一新物理页即可
-      vm_map(pgdir, i, PGSIZE, pte->val & 7);
-      void *pa = vm_walk(vm_curr(), i, 0);
-      void *new_pa = vm_walk(pgdir, i, 0);
+      vm_map(pgdir, v_addr, PGSIZE, pte->val & 7);
+      void *pa = vm_walk(vm_curr(), v_addr, 0);
+      void *new_pa = vm_walk(pgdir, v_addr, 0);
       memcpy(new_pa, pa, PGSIZE);
     }
   }

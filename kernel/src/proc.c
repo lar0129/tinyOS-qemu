@@ -49,7 +49,7 @@ void proc_free(proc_t *proc) {
   // Lab2-1: free proc's pgdir and kstack and mark it UNUSED
   // // TODO();
   //使用vm_teardown和kfree回收proc指向的进程的页目录和内核栈，然后标记该PCB的状态为UNUSED来回收进程。
-  if(proc->status == UNUSED || proc->status == RUNNING){
+  if(proc->status == RUNNING){
     return;
   }
   vm_teardown(proc->pgdir);
@@ -94,9 +94,10 @@ void proc_copycurr(proc_t *proc) {
   proc->kstack->ctx = curr->kstack->ctx;
   // 把proc的中断上下文中的EAX改为0，这是它系统调用的返回值
   proc->ctx->eax = 0;
+  proc->kstack->ctx.eax = 0;
   // 把proc的父进程设为当前进程，以及自增当前进程PCB里记录的子进程数量。
   proc->parent = curr;
-  curr->child_num++;
+  ++curr->child_num;
 
   // Lab2-5: dup opened usems
   // Lab3-1: dup opened files
@@ -162,17 +163,22 @@ file_t *proc_getfile(proc_t *proc, int fd) {
 void schedule(Context *ctx) {
   // Lab2-1: save ctx to curr->ctx, then find a READY proc and run it
   // // TODO();
-  proc_curr()->ctx = ctx; // 记录保存当前进程状态的中断上下文的位置, 返回目标是int $0x81这条指令的下一条指令
+  proc_curr()->ctx = ctx; // 当前进程要schedule到其他，所以记录保存当前进程状态的中断上下文的位置, 返回目标是int $0x81这条指令的下一条指令
   // 一段时间之后，另一个进程打算进程切换的时候，再用这个进程之前保存的上下文进行中断返回，也就相当于切换回来了
 
-  for(int i = proc_curr()->pid + 1 ;;i++)
+  // 错误示范：for(int i = proc_curr()->pid + 1 ;;i++)
+  // pid会无限递增，与pcb无关，我找了3小时！！
+  for(proc_t *proc = proc_curr();;)
   {
     //从当前进程在pcb的下一个位置开始循环遍历整个数组
-    if(i == PROC_NUM) i = 0; //循环数组
-    if(pcb[i].status == READY){
+    if(proc == &pcb[PROC_NUM-1]) proc=&pcb[0]; //循环遍历
+    else proc++;
+
+    if(proc->status == READY){
       // 用另一个进程之前保存的上下文进行中断返回，进入另一个进程
-      proc_run(&pcb[i]);
-      }
+      proc_run(proc);
+      break;
+    }
   }
   
 }
