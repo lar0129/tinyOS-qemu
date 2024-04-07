@@ -32,9 +32,10 @@ typedef struct proc {
   Context *ctx; // points to restore context for READY proc 
   // 如果这个PCB表示的进程现在不在RUNNING，但未来将被RUNNING的话，那么ctx指向一个能让这个进程开始执行的中断上下文
 
-  //struct proc *parent; // Lab2-2
-  //int child_num; // Lab2-2
-  //int exit_code; // Lab2-3
+  struct proc *parent; // Lab2-2
+  // 不是所有进程都有父进程，比如内核进程和由内核进程直接创建的用户进程就没有父进程，所以今后如果需要使用parent的时候记得判NULL。
+  int child_num; // Lab2-2
+  int exit_code; // Lab2-3
   //sem_t zombie_sem; // Lab2-4
   //usem_t *usems[MAX_USEM]; // Lab2-5
   //file_t *files[MAX_UFILE]; // Lab3-1

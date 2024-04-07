@@ -146,6 +146,7 @@ PD *vm_curr() {
   return (PD*)PAGE_DOWN(get_cr3());
 }
 
+// prot=0是查找pte，prot!=0是构造pte
 PTE *vm_walkpte(PD *pgdir, size_t va, int prot) {
   // Lab1-4: return the pointer of PTE which match va
   int pd_index = ADDR2DIR(va); // 计算“页目录号PDE”
@@ -159,25 +160,32 @@ PTE *vm_walkpte(PD *pgdir, size_t va, int prot) {
   {
     pt = kalloc();
     pde->val = MAKE_PDE((uint32_t)pt, prot);
+    int pt_index = ADDR2TBL(va); // 计算“页表号”PTE
+    PTE *pte = &(pt->pte[pt_index]); // 找到对应的页表项PTE
+    assert((prot & ~7) == 0);
+    return pte;
   }
   // if not exist (PDE of va is empty) and !(prot&1), return NULL
   // 权限不足
   else if (!(pde->present & 1) && !(prot & 1))
   {
-    panic("vm_walkpte: pde is not present");
+    // panic("vm_walkpte: pde is not present and !prot&1");
     return NULL;
   }
+  // 存在PDE，返回指向对应PTE的指针。有可能修改prot
   else{
-    pde->val |= prot;
+    if (prot != 0)
+    {
+      pde->val |= prot;
+    }
     pt = PDE2PT(*pde); // 根据PDE找页表PT的地址
+    // 返回指向对应PTE的指针,不用再设置PTE
+    int pt_index = ADDR2TBL(va); // 计算“页表号”PTE
+    PTE *pte = &(pt->pte[pt_index]); // 找到对应的页表项PTE
+    
+    assert((prot & ~7) == 0);
+    return pte;
   }
-  
-  // 返回指向对应PTE的指针,不用再设置PTE
-  int pt_index = ADDR2TBL(va); // 计算“页表号”PTE
-  PTE *pte = &(pt->pte[pt_index]); // 找到对应的页表项PTE
-  
-  assert((prot & ~7) == 0);
-  return pte;
 }
 
 void *vm_walk(PD *pgdir, size_t va, int prot) {
@@ -189,18 +197,12 @@ void *vm_walk(PD *pgdir, size_t va, int prot) {
     vm_pgfault(va, 0);
   }
   
-  // if va is not mapped and !(prot&1), return NULL
-  if ((int32_t)PTE2PG(*pte) == 0 )
+  // if va is not mapped and !(prot&1), return NULL 没找到映射好的物理地址
+  if ((int32_t)PTE2PG(*pte) == 0 && !(prot&1))
   {
-    panic("vm_walk: pte is not mapped");
+    // panic("vm_walk: pte is not mapped and !prot&1");
     return NULL;
   }
-  if (!(prot & 1))
-  {
-    panic("vm_walk: proc is not present");
-    return NULL;
-  }
-  
 
   // @lar: if va is mapped, return pa
   void *page = (void*)PTE2PG(*pte);
@@ -276,9 +278,24 @@ void vm_unmap(PD *pgdir, size_t va, size_t len) {
   // you can just do nothing :)
 }
 
+// 复制当前的虚拟地址空间到pgdir这个页目录里。
 void vm_copycurr(PD *pgdir) {
   // Lab2-2: copy memory mapped in curr pd to pgdir
-  TODO();
+  // 遍历[PHY_MEM, USR_MEM)范围内的虚拟页，用vm_walkpte尝试在当前页目录中找这个虚拟页对应的PTE，
+  // 如果PTE存在且有效的话（即这个虚拟地址在当前页目录中存在映射），代表这一页需要复制并在pgdir中添加映射
+  for(size_t i = PHY_MEM; i < USR_MEM; i += PGSIZE){
+    PTE *pte = vm_walkpte(vm_curr(), i, 0);
+    if(pte != NULL && pte->val & PTE_P){
+      // 复制的时候，首先调用vm_map添加这一虚拟页在pgdir中的映射（注意这一页在当前页目录中的权限和在pgdir中的权限应该一致），
+      // 然后用vm_walk或vm_walkpte查出其在pgdir中映射到的物理页，
+      // 接着调用memcpy把原来虚拟页的内容复制到这一新物理页即可
+      vm_map(pgdir, i, PGSIZE, pte->val & 7);
+      void *pa = vm_walk(vm_curr(), i, 0);
+      void *new_pa = vm_walk(pgdir, i, 0);
+      memcpy(new_pa, pa, PGSIZE);
+    }
+  }
+  // // TODO();
 }
 
 void vm_pgfault(size_t va, int errcode) {

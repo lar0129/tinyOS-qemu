@@ -56,8 +56,8 @@ void init_user_and_go() {
   // Lab2-1: proc
   proc_t *proc = proc_alloc();
   assert(proc);
-  char *argv[] = {"sh1", NULL};
-  assert(load_user(proc->pgdir, proc->ctx, "sh1", argv) == 0);
+  char *argv[] = {"sh", NULL};
+  assert(load_user(proc->pgdir, proc->ctx, "sh", argv) == 0);
   // 调度当前进程
   proc_addready(proc);
   sti(); // 让内核进程最后把中断打开，这样如果别的进程都在关中断的内核态时，只要切换到内核进程时就可以处理中断了

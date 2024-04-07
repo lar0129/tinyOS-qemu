@@ -5,6 +5,8 @@
         "unistd.h": "c",
         "vme.h": "c",
         "cte.h": "c",
-        "lib.h": "c"
+        "lib.h": "c",
+        "stdint.h": "c",
+        "stdarg.h": "c"
     }
 }

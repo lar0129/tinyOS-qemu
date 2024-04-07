@@ -35,11 +35,13 @@ proc_t *proc_alloc() {
       pcb[i].brk = 0;
       pcb[i].kstack = (kstack_t*)kalloc();
       pcb[i].ctx = &(pcb[i].kstack->ctx);
+      pcb[i].parent = NULL;
+      pcb[i].child_num = 0;
       // to be continued
       return &pcb[i];
     }
   }
-  panic("No available PCB");
+  // panic("No available PCB");
   return NULL;
 }
 
@@ -81,25 +83,53 @@ void proc_yield() {
   INT(0x81); // 触发进程切换的软件中断
 }
 
+// 复制当前进程的地址空间和上下文的状态到proc这个进程中。
 void proc_copycurr(proc_t *proc) {
   // Lab2-2: copy curr proc
+  proc_t *curr = proc_curr();
+  // 复制当前进程的页目录到proc的页目录
+  vm_copycurr(proc->pgdir);
+  // 把当前进程内核栈栈顶的中断上下文复制给proc的内核栈栈顶的中断上下文
+  // 不需要修改proc->ctx（？）因为proc->ctx指向的是proc->kstack->ctx，所以proc->ctx已经指向了proc的内核栈栈顶的中断上下文
+  proc->kstack->ctx = curr->kstack->ctx;
+  // 把proc的中断上下文中的EAX改为0，这是它系统调用的返回值
+  proc->ctx->eax = 0;
+  // 把proc的父进程设为当前进程，以及自增当前进程PCB里记录的子进程数量。
+  proc->parent = curr;
+  curr->child_num++;
+
   // Lab2-5: dup opened usems
   // Lab3-1: dup opened files
   // Lab3-2: dup cwd
-  TODO();
+  // // TODO();
 }
 
 void proc_makezombie(proc_t *proc, int exitcode) {
   // Lab2-3: mark proc ZOMBIE and record exitcode, set children's parent to NULL
+  proc->status = ZOMBIE;
+  proc->exit_code = exitcode;
+  for (int i = 0; i < PROC_NUM; i++) {
+    if (pcb[i].parent == proc) {
+      pcb[i].parent = NULL;
+      // 你爹已经似了，没人给你收尸了
+    }
+  }
+
   // Lab2-5: close opened usem
   // Lab3-1: close opened files
   // Lab3-2: close cwd
-  TODO();
+  // // TODO();
 }
 
 proc_t *proc_findzombie(proc_t *proc) {
   // Lab2-3: find a ZOMBIE whose parent is proc, return NULL if none
-  TODO();
+  // // TODO();
+  for (int i = 0; i < PROC_NUM; i++) {
+    if (pcb[i].parent == proc && pcb[i].status == ZOMBIE) {
+      return &pcb[i];
+    }
+  }
+  return NULL;
 }
 
 void proc_block() {

@@ -114,15 +114,49 @@ void sys_yield() {
 }
 
 int sys_fork() {
-  TODO(); // Lab2-2
+  // // TODO(); // Lab2-2
+  proc_t *child = proc_alloc();
+  if (child == NULL) {
+    return -1;
+  }
+  proc_copycurr(child);
+  proc_addready(child);
+  return child->pid;
 }
 
+// 系统调用退出当前进程，并记录退出状态为status，父进程可以通过wait系统调用获取子进程的退出状态
 void sys_exit(int status) {
-  TODO(); // Lab2-3
+  // // TODO(); // Lab2-3
+  // while (1) proc_yield();
+  proc_makezombie(proc_curr(), status);
+
+  // 退出当前进程后切换进程
+  INT(0x81); 
+  assert(0);
 }
 
+// 返回一个退出的子进程的PID。如果status不为NULL，再把子进程的退出状态记录在那，最后释放这个子进程的PCB。
 int sys_wait(int *status) {
-  TODO(); // Lab2-3, Lab2-4
+  // // TODO(); // Lab2-3,
+  // sys_sleep(250);
+  // return 0;
+  if(proc_curr()->child_num == 0) {
+    return -1;
+  }
+  proc_t *zombie;
+  while((zombie = proc_findzombie(proc_curr())) == NULL) {
+    proc_yield();
+  }
+  if (status!=NULL){
+    *status = zombie->exit_code;
+  }
+  int zombie_pid = zombie->pid;
+  proc_free(zombie);
+  proc_curr()->child_num--;
+  return zombie_pid;
+
+  
+  // Lab2-4
 }
 
 int sys_sem_open(int value) {
