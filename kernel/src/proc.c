@@ -6,24 +6,54 @@
 
 static __attribute__((used)) int next_pid = 1;
 
-proc_t pcb[PROC_NUM];
+proc_t pcb[PROC_NUM]; //操作系统所有可用的PCB
 static proc_t *curr = &pcb[0];
 
 void init_proc() {
   // Lab2-1, set status and pgdir
+  pcb[0].status = RUNNING;
+  pcb[0].pgdir = vm_curr();
+  // 本身就在内核，不会遇到用户态到内核态的中断，所以用不到kstack这个“内核栈“，
+  // 也可以设置成现在栈所在的那一页（(void*)(KER_MEM-PGSIZE)）
+  pcb[0].kstack = (kstack_t*)((void*)(KER_MEM-PGSIZE));
+  
   // Lab2-4, init zombie_sem
   // Lab3-2, set cwd
 }
 
 proc_t *proc_alloc() {
   // Lab2-1: find a unused pcb from pcb[1..PROC_NUM-1], return NULL if no such one
-  TODO();
-  // init ALL attributes of the pcb
+  // // TODO();
+  // 从pcb[1]开始遍历，如果没有空闲的PCB，直接返回NULL。
+  for (int i = 1; i < PROC_NUM; i++) {
+    if (pcb[i].status == UNUSED) {
+      // init ALL attributes of the pcb
+      pcb[i].pid = next_pid;
+      next_pid++;
+      pcb[i].status = UNINIT; //代表这个PCB不是空的，但因为没有初始化完毕
+      pcb[i].pgdir = vm_alloc();
+      pcb[i].brk = 0;
+      pcb[i].kstack = (kstack_t*)kalloc();
+      pcb[i].ctx = &(pcb[i].kstack->ctx);
+      // to be continued
+      return &pcb[i];
+    }
+  }
+  panic("No available PCB");
+  return NULL;
 }
 
 void proc_free(proc_t *proc) {
   // Lab2-1: free proc's pgdir and kstack and mark it UNUSED
-  TODO();
+  // // TODO();
+  //使用vm_teardown和kfree回收proc指向的进程的页目录和内核栈，然后标记该PCB的状态为UNUSED来回收进程。
+  if(proc->status == UNUSED || proc->status == RUNNING){
+    return;
+  }
+  vm_teardown(proc->pgdir);
+  kfree(proc->kstack);
+  proc->status = UNUSED;
+  
 }
 
 proc_t *proc_curr() {
@@ -33,8 +63,10 @@ proc_t *proc_curr() {
 void proc_run(proc_t *proc) {
   proc->status = RUNNING;
   curr = proc;
+  // 和init_user_and_go的后半部分很像，都是设置页目录，设置内核栈，然后通过irq_iret正式开始执行。
   set_cr3(proc->pgdir);
   set_tss(KSEL(SEG_KDATA), (uint32_t)STACK_TOP(proc->kstack));
+  // ctx指向这个进程的”入口“——能让这个进程开始执行的中断上下文
   irq_iret(proc->ctx);
 }
 
@@ -46,7 +78,7 @@ void proc_addready(proc_t *proc) {
 void proc_yield() {
   // Lab2-1: mark curr proc READY, then int $0x81
   curr->status = READY;
-  INT(0x81);
+  INT(0x81); // 触发进程切换的软件中断
 }
 
 void proc_copycurr(proc_t *proc) {
@@ -96,7 +128,21 @@ file_t *proc_getfile(proc_t *proc, int fd) {
   TODO();
 }
 
+// ctx参数的含义：每次中断的时候OS都会将当前状态作为一个中断上下文压栈保存在当前进程的内核栈里（写在Trap.S里）
 void schedule(Context *ctx) {
   // Lab2-1: save ctx to curr->ctx, then find a READY proc and run it
-  TODO();
+  // // TODO();
+  proc_curr()->ctx = ctx; // 记录保存当前进程状态的中断上下文的位置, 返回目标是int $0x81这条指令的下一条指令
+  // 一段时间之后，另一个进程打算进程切换的时候，再用这个进程之前保存的上下文进行中断返回，也就相当于切换回来了
+
+  for(int i = proc_curr()->pid + 1 ;;i++)
+  {
+    //从当前进程在pcb的下一个位置开始循环遍历整个数组
+    if(i == PROC_NUM) i = 0; //循环数组
+    if(pcb[i].status == READY){
+      // 用另一个进程之前保存的上下文进行中断返回，进入另一个进程
+      proc_run(&pcb[i]);
+      }
+  }
+  
 }

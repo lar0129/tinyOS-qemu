@@ -13,7 +13,7 @@ typedef union {
   uint8_t stack[KSTACK_SIZE];
   struct {
     uint8_t pad[KSTACK_SIZE - sizeof(Context)];
-    Context ctx;
+    Context ctx; //内核栈的栈顶有个中断上下文ctx，是因为用户程序中断后一定会在内核栈顶构造中断上下文
   };
 } kstack_t;
 
@@ -24,10 +24,14 @@ typedef union {
 typedef struct proc {
   int pid;
   enum {UNUSED, UNINIT, RUNNING, READY, ZOMBIE, BLOCKED} status;
-  PD *pgdir;
+  //UNUSED代表这个PCB是空的，不表示进程；UNINIT代表虽然这个PCB虽然表示一个进程，但这个还没初始化，因此不能执行这个进程；
+  // RUNNING代表这个PCB表示的进程正在执行；因为只有一个CPU，所以我们这个操作系统中同时只能有一个RUNNING的进程。READY代表这个PCB表示的进程虽然现在不在执行，但可以被执行，
+  PD *pgdir; //维护这个进程虚拟地址空间的页目录
   size_t brk;
-  kstack_t *kstack;
-  Context *ctx; // points to restore context for READY proc
+  kstack_t *kstack; //进程内核栈的栈底
+  Context *ctx; // points to restore context for READY proc 
+  // 如果这个PCB表示的进程现在不在RUNNING，但未来将被RUNNING的话，那么ctx指向一个能让这个进程开始执行的中断上下文
+
   //struct proc *parent; // Lab2-2
   //int child_num; // Lab2-2
   //int exit_code; // Lab2-3

@@ -46,7 +46,8 @@ int sys_read(int fd, void *buf, size_t count) {
 
 int sys_brk(void *addr) {
   // TODO: Lab1-5
-  static size_t brk = 0; // use brk of proc instead of this in Lab2-1
+  // static size_t brk = 0; // use brk of proc instead of this in Lab2-1
+  size_t brk = proc_curr()->brk;
   size_t new_brk = PAGE_UP(addr);  // 保证我们操作系统认为的program break一定不小于用户程序实际的program break
   if (brk == 0) {
     brk = new_brk;
@@ -70,15 +71,18 @@ void sys_sleep(int ticks) {
   uint32_t cur = get_tick();
   while (get_tick() - cur < ticks)
   {
-    sti(); hlt(); cli();
+    // sti(); hlt(); cli(); // 啥也不干
+    proc_yield(); // 进程切换
   }
   
 }
 
 // 把当前程序替换成要执行的程序, path是程序名，argv是参数列表
+// 这两个程序还是一个进程，这一个进程在时间先后上对应不同的用户程序，所以新程序仍然继续使用这个进程的PCB。
 int sys_exec(const char *path, char *const argv[]) {
   // // TODO(); // Lab1-8
   PD *pgdir = vm_alloc(); //不用现在的页目录是因为path和argv还指向用户程序那部分的虚拟内存，并且还有继续执行原程序的可能
+  proc_curr()->pgdir = pgdir; // 要切换到新的用户程序时，虚拟地址空间映射的物理空间发生了变化,要修改当前进程PCB里记录的页目录pgdir。
   Context ctx;
   // 接着调用load_user加载新用户程序到新页目录并初始化中断上下文，
   // 如果load_user返回非0代表加载新程序失败，把新页目录释放掉然后直接返回-1，代表exec失败，继续执行原程序。
@@ -100,10 +104,12 @@ int sys_exec(const char *path, char *const argv[]) {
 }
 
 int sys_getpid() {
-  TODO(); // Lab2-1
+  // // TODO(); // Lab2-1
+  return proc_curr()->pid;
 }
 
 void sys_yield() {
+  // 用户态进程主动让出CPU，调用proc_yield，然后触发进程切换的软中断。
   proc_yield();
 }
 

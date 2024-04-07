@@ -100,12 +100,12 @@ int load_user(PD *pgdir, Context *ctx, const char *name, char *const argv[]) {
   ctx->cs = USEL(SEG_UCODE); // 用户态的用户代码段
   ctx->ds = USEL(SEG_UDATA); // 用户态的用户数据段
   ctx->eip = eip; // 用户程序的入口地址
-  // TODO: Lab1-6 init ctx->ss and esp
+  // // TODO: Lab1-6 init ctx->ss and esp
   ctx->ss = USEL(SEG_UDATA); // 用户态的数据段，即用户栈基址
   
   // ctx->esp = USR_MEM-16; // 用户栈栈顶
   ctx->esp = load_arg(pgdir, argv); // Load argv to user stack
 
-  ctx->eflags = 0x202; // TODO: Lab1-7 change me to 0x202
+  ctx->eflags = 0x202; // // TODO: Lab1-7 change me to 0x202
   return 0;
 }
