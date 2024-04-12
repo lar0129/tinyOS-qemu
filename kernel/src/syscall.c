@@ -144,9 +144,13 @@ int sys_wait(int *status) {
     return -1;
   }
   proc_t *zombie;
-  while((zombie = proc_findzombie(proc_curr())) == NULL) {
-    proc_yield();
-  }
+  // while((zombie = proc_findzombie(proc_curr())) == NULL) {
+  //   proc_yield();
+  // }
+  sem_p(&proc_curr()->zombie_sem); // 找不到僵尸进程就阻塞
+  zombie = proc_findzombie(proc_curr());
+  assert(zombie != NULL);
+
   if (status!=NULL){
     *status = zombie->exit_code;
   }

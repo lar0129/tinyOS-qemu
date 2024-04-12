@@ -18,6 +18,7 @@ void init_proc() {
   pcb[0].kstack = (kstack_t*)((void*)(KER_MEM-PGSIZE));
   
   // Lab2-4, init zombie_sem
+  sem_init(&pcb[0].zombie_sem, 0);
   // Lab3-2, set cwd
 }
 
@@ -37,6 +38,7 @@ proc_t *proc_alloc() {
       pcb[i].ctx = &(pcb[i].kstack->ctx);
       pcb[i].parent = NULL;
       pcb[i].child_num = 0;
+      sem_init(&pcb[i].zombie_sem, 0);
       // to be continued
       return &pcb[i];
     }
@@ -109,6 +111,10 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   // Lab2-3: mark proc ZOMBIE and record exitcode, set children's parent to NULL
   proc->status = ZOMBIE;
   proc->exit_code = exitcode;
+  // Lab2-4 告诉爹你有一个子僵尸进程了
+  if(proc->parent != NULL){
+    sem_v(&proc->parent->zombie_sem);
+  }
   for (int i = 0; i < PROC_NUM; i++) {
     if (pcb[i].parent == proc) {
       pcb[i].parent = NULL;

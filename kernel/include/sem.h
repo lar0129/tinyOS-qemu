@@ -4,7 +4,7 @@
 #include "klib.h"
 
 typedef struct sem {
-  int value;
+  int value; // value为正表示当前资源还有这么多个，为负表示当前没有资源且还有这么多进程在等。
   list_t wait_list;
 } sem_t;
 

@@ -6,7 +6,7 @@
 #define SERIAL_PORT 0x3F8
 
 // TODO: Lab2-4 use sem to sync serial
-//static sem_t serial_sem;
+static sem_t serial_sem; // 管理"缓存区资源"
 
 void init_serial() {
   outb(SERIAL_PORT + 1, 0x00); // you don't need to understand this
@@ -18,7 +18,7 @@ void init_serial() {
   outb(SERIAL_PORT + 4, 0x0B);
   outb(SERIAL_PORT + 1, 0x01);
   putchar('\n'); // start a new line
-  //sem_init(&serial_sem, 0);
+  sem_init(&serial_sem, 0);
 }
 
 static inline bool serial_idle() {
@@ -39,6 +39,10 @@ static void push_back(char ch) {
   buffer[tail++ % BUFFER_SIZE] = ch;
   // TODO: Lab2-4 V(sem) tail-clapboard times if ch=='\n'
   if (ch == '\n') {
+    for(int i = 0; i < tail - clapboard; i++){
+      sem_v(&serial_sem);
+      // 一下子多出tail-clapboard这么多个可以被取的字符，因此需要V这么多下serial_sem。
+    }
     clapboard = tail;
   }
 }
@@ -87,17 +91,21 @@ void serial_handle() {
 
 char getchar() {
   char ch;
-  while ((ch = pop_front()) == 0) {
-    // 轮询：不断检查串口是否有输入
-    // serial_handle();
+  // while ((ch = pop_front()) == 0) {
+  //   // 轮询：不断检查串口是否有输入
+  //   // serial_handle();
 
-    // 等待中断：
-    // 这个三连——sti指令开中断，hlt指令让CPU睡大觉直到出现中断，中断处理完后继续执行，cli指令关中断
-    // 因为我们操作系统大部分代码不能被打断，需要在关中断下执行。
-    // sti(); hlt(); cli(); // change to me in Lab1-7 啥也不干
-    proc_yield(); // change to me in Lab2-1 进程切换
-  }
+  //   // 等待中断：
+  //   // 这个三连——sti指令开中断，hlt指令让CPU睡大觉直到出现中断，中断处理完后继续执行，cli指令关中断
+  //   // 因为我们操作系统大部分代码不能被打断，需要在关中断下执行。
+  //   // sti(); hlt(); cli(); // change to me in Lab1-7 啥也不干
+  //   proc_yield(); // change to me in Lab2-1 进程切换
+  // }
   // TODO: Lab2-4 rewrite getchar with sem, P(sem) then pop_front
+  // 原来我们在getchar取字符的时候会一直循环pop_front直到取到一个字符（即返回值非0），有了信号量，只需要简单地P一下serial_sem，再pop_front即可
+  sem_p(&serial_sem); // 取资源（如果没资源则阻塞。代替了while循环）
+  ch = pop_front();
+  assert(ch!=0);
   return ch;
 }
 
