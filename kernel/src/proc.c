@@ -39,6 +39,9 @@ proc_t *proc_alloc() {
       pcb[i].parent = NULL;
       pcb[i].child_num = 0;
       sem_init(&pcb[i].zombie_sem, 0);
+      for (int j = 0; j < MAX_USEM; j++) {
+        pcb[i].usems[j] = NULL;
+      }
       // to be continued
       return &pcb[i];
     }
@@ -101,7 +104,12 @@ void proc_copycurr(proc_t *proc) {
   proc->parent = curr;
   ++curr->child_num;
 
-  // Lab2-5: dup opened usems
+  // Lab2-5: dup opened usems 复制usems
+  for(int i = 0; i < MAX_USEM; i++){
+    if(curr->usems[i] != NULL){
+      proc->usems[i] = usem_dup(curr->usems[i]);
+    }
+  }
   // Lab3-1: dup opened files
   // Lab3-2: dup cwd
   // // TODO();
@@ -123,6 +131,12 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   }
 
   // Lab2-5: close opened usem
+  for(int i = 0; i < MAX_USEM; i++){
+    if(proc->usems[i] != NULL){
+      usem_close(proc->usems[i]);
+      // 不需要再设置为NULL，因为还有其他进程在使用这个信号量
+    }
+  }
   // Lab3-1: close opened files
   // Lab3-2: close cwd
   // // TODO();
@@ -147,12 +161,22 @@ void proc_block() {
 
 int proc_allocusem(proc_t *proc) {
   // Lab2-5: find a free slot in proc->usems, return its index, or -1 if none
-  TODO();
+  // // TODO();
+  for(int i = 0; i < MAX_USEM; i++){
+    if(proc->usems[i] == NULL){
+      return i;
+    }
+  }
+  return -1;
 }
 
 usem_t *proc_getusem(proc_t *proc, int sem_id) {
   // Lab2-5: return proc->usems[sem_id], or NULL if sem_id out of bound
-  TODO();
+  // // TODO();
+  if(sem_id < 0 || sem_id >= MAX_USEM){
+    return NULL;
+  }
+  return proc->usems[sem_id];
 }
 
 int proc_allocfile(proc_t *proc) {

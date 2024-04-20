@@ -163,20 +163,58 @@ int sys_wait(int *status) {
   // Lab2-4
 }
 
+// 打开一个初值为value的用户信号量，成功返回其编号，失败返回-1
 int sys_sem_open(int value) {
-  TODO(); // Lab2-5
+  // // TODO(); // Lab2-5
+  int usemIdx = proc_allocusem(proc_curr());
+  if(usemIdx == -1){
+    return -1;
+  }
+
+  usem_t *usem = usem_alloc(value); //从总的信号量数组中找到一个空闲的信号量，初始化并返回给当前进程的表
+  if (usem == NULL) {
+    return -1;
+  }
+
+  proc_curr()->usems[usemIdx] = usem;
+  return usemIdx;
 }
 
 int sys_sem_p(int sem_id) {
-  TODO(); // Lab2-5
+  // // TODO(); // Lab2-5
+  usem_t *usem = proc_getusem(proc_curr(), sem_id);
+  if (usem == NULL)
+  {
+    return -1;
+  }
+  
+  sem_p(&usem->sem);
+  return 0;
 }
 
 int sys_sem_v(int sem_id) {
-  TODO(); // Lab2-5
+  // // TODO(); // Lab2-5
+  usem_t *usem = proc_getusem(proc_curr(), sem_id);
+  if (usem == NULL)
+  {
+    return -1;
+  }
+  
+  sem_v(&usem->sem);
+  return 0;
 }
 
 int sys_sem_close(int sem_id) {
-  TODO(); // Lab2-5
+  // // TODO(); // Lab2-5
+  usem_t *usem = proc_getusem(proc_curr(), sem_id);
+  if (usem == NULL)
+  {
+    return -1;
+  }
+  
+  usem_close(usem); // ref--
+  proc_curr()->usems[sem_id] = NULL; // 释放进程信号量表为NULL
+  return 0;
 }
 
 int sys_open(const char *path, int mode) {

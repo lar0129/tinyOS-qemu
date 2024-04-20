@@ -14,7 +14,7 @@ void sem_v(sem_t *sem);
 
 typedef struct usem {
   sem_t sem;
-  int ref;
+  int ref; // 代表当前有几个用户进程持有这个信号量
 } usem_t;
 
 usem_t *usem_alloc(int value);

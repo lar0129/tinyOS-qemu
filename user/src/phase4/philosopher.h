@@ -12,9 +12,9 @@ void eat(int id) {
 }
 
 void think(int id) {
-  //printf("philosopher %d start thinking.\n", id);
+  // printf("philosopher %d start thinking.\n", id);
   sleep(rand() % 5 + 10);
-  //printf("philosopher %d end thinking.\n", id);
+  // printf("philosopher %d end thinking.\n", id);
 }
 
 int fork_s() {
