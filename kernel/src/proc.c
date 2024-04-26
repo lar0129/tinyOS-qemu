@@ -42,6 +42,9 @@ proc_t *proc_alloc() {
       for (int j = 0; j < MAX_USEM; j++) {
         pcb[i].usems[j] = NULL;
       }
+      for (int j = 0; j < MAX_UFILE; j++){
+        pcb[i].files[j] = NULL;
+      }
       // to be continued
       return &pcb[i];
     }
@@ -111,6 +114,11 @@ void proc_copycurr(proc_t *proc) {
     }
   }
   // Lab3-1: dup opened files
+  for(int i = 0; i < MAX_UFILE; i++){
+    if(curr->files[i] != NULL){
+      proc->files[i] = fdup(curr->files[i]);
+    }
+  }
   // Lab3-2: dup cwd
   // // TODO();
 }
@@ -134,10 +142,15 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   for(int i = 0; i < MAX_USEM; i++){
     if(proc->usems[i] != NULL){
       usem_close(proc->usems[i]);
-      // 不需要再设置为NULL，因为还有其他进程在使用这个信号量
+      // 不需要再设置为NULL，因为可能还有其他进程在使用这个信号量
     }
   }
   // Lab3-1: close opened files
+  for(int i = 0; i < MAX_UFILE; i++){
+    if(proc->files[i] != NULL){
+      fclose(proc->files[i]);
+    }
+  }
   // Lab3-2: close cwd
   // // TODO();
 }
@@ -181,12 +194,22 @@ usem_t *proc_getusem(proc_t *proc, int sem_id) {
 
 int proc_allocfile(proc_t *proc) {
   // Lab3-1: find a free slot in proc->files, return its index, or -1 if none
-  TODO();
+  // // TODO();
+  for(int i = 0; i < MAX_UFILE; i++){
+    if(proc->files[i] == NULL){
+      return i;
+    }
+  }
+  return -1;
 }
 
 file_t *proc_getfile(proc_t *proc, int fd) {
   // Lab3-1: return proc->files[fd], or NULL if fd out of bound
-  TODO();
+  // // TODO();
+  if(fd < 0 || fd >= MAX_UFILE){
+    return NULL;
+  }
+  return proc->files[fd];
 }
 
 // ctx参数的含义：每次中断的时候OS都会将当前状态作为一个中断上下文压栈保存在当前进程的内核栈里（写在Trap.S里）

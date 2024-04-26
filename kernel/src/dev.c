@@ -24,7 +24,7 @@ static struct {
 void init_dev() {
   iclose(iopen("/dev", TYPE_DIR)); // create the dev dir
   for (int i = 0; i < DEV_NUM; ++i) {
-    iadddev(dev_table[i].name, i);
+    iadddev(dev_table[i].name, i); //设备文件的初始化注册
   }
 }
 

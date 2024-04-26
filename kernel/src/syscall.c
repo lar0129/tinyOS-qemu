@@ -31,17 +31,30 @@ void do_syscall(Context *ctx) {
   ctx->eax = res;
 }
 
-// buf是虚拟地址，count是字节数
-// 页目录PD里不仅有给内核用的PHY_MEM以下的恒等映射，还有用户程序的那块虚拟内存，
-// 因此在操作系统里也可以解指向用户程序地址的指针buf。
+// 从buf写count字节到fd表示的文件，返回写的字节数（或-1如果失败）
 int sys_write(int fd, const void *buf, size_t count) {
-  // TODO: rewrite me at Lab3-1
-  return serial_write(buf, count);
+  // // TODO: rewrite me at Lab3-1
+  // return serial_write(buf, count);
+  // 从当前进程中取出对应文件描述符的file_t*，如果是NULL即没有对应的文件，就返回-1，
+  // 有的话就调用虚拟文件系统那块的对应API。
+  file_t *file = proc_getfile(proc_curr(), fd);
+  if (file == NULL) {
+    return -1;
+  }
+  return fwrite(file, buf, count);
 }
 
+// 从fd表示的文件读count字节到buf，返回读的字节数（或-1如果失败）
 int sys_read(int fd, void *buf, size_t count) {
-  // TODO: rewrite me at Lab3-1
-  return serial_read(buf, count);
+  // // TODO: rewrite me at Lab3-1
+  // return serial_read(buf, count);
+  // 从当前进程中取出对应文件描述符的file_t*，如果是NULL即没有对应的文件，就返回-1，
+  // 有的话就调用虚拟文件系统那块的对应API。
+  file_t *file = proc_getfile(proc_curr(), fd);
+  if (file == NULL) {
+    return -1;
+  }
+  return fread(file, buf, count);
 }
 
 int sys_brk(void *addr) {
@@ -217,24 +230,87 @@ int sys_sem_close(int sem_id) {
   return 0;
 }
 
+// 打开path代表的文件，返回其文件描述符（要求为可用中最小的），失败返回-1，mode的意义同前面介绍的fopen
 int sys_open(const char *path, int mode) {
-  TODO(); // Lab3-1
+  // // TODO(); // Lab3-1
+  // 首先调用proc_allocfile找一个空的文件描述符，如果没有返回-1，
+  // 再调用fopen打开文件，打开失败也返回-1，都成功的话就把打开的file_t的指针放在用户打开文件表的对应位置。
+  int fd = proc_allocfile(proc_curr());
+  if (fd == -1) {
+    return -1;
+  }
+  file_t *file = fopen(path, mode);
+  if (file == NULL) {
+    return -1;
+  }
+  proc_curr()->files[fd] = file;
+  return fd;
 }
 
+// 关闭fd表示的文件，成功返回0，失败返回-1
 int sys_close(int fd) {
-  TODO(); // Lab3-1
+  // // TODO(); // Lab3-1
+  // 首先调用proc_getfile从当前进程中取出对应文件描述符的file_t*，如果是NULL即没有对应的文件，就返回-1，
+  // 有的话就调用虚拟文件系统那块的对应API，不过close最后还要把当前进程用户打开文件表中的对应项设为NULL。
+  file_t *file = proc_getfile(proc_curr(), fd);
+  if (file == NULL) {
+    return -1;
+  }
+  fclose(file);
+  proc_curr()->files[fd] = NULL;
+  return 0;
 }
 
+// dup系统调用用来复制文件描述符到当前进程，这样可以让不同的文件描述符对应到相同的file_t*
+// 复制fd表示的file_t指针到新的文件描述符并返回（要求为可用中最小的），失败返回-1
 int sys_dup(int fd) {
-  TODO(); // Lab3-1
+  //  // TODO(); // Lab3-1
+  // sys_dup既要调用proc_allocfile找一个空的文件描述符，也要调用proc_getfile从当前进程中取出对应文件描述符的file_t*，任一失败都会返回-1，
+  // 都成功的话就把这个file_t*放在用户打开文件表的对应位置，不过别忘记调用fdup增加引用计数
+  int new_fd = proc_allocfile(proc_curr());
+  if (new_fd == -1) {
+    return -1;
+  }
+  file_t *file = proc_getfile(proc_curr(), fd);
+  if (file == NULL) {
+    return -1;
+  }
+  file_t *new_file = fdup(file);
+  proc_curr()->files[new_fd] = new_file;
+  return new_fd;
 }
 
+// 调整fd指向的文件的文件的偏移量并返回，whence的意义同前面介绍的fseek，失败返回-1
 uint32_t sys_lseek(int fd, uint32_t off, int whence) {
-  TODO(); // Lab3-1
+  // // TODO(); // Lab3-1
+  // 首先调用proc_getfile从当前进程中取出对应文件描述符的file_t*，如果是NULL即没有对应的文件，就返回-1，
+  // 有的话就调用虚拟文件系统那块的对应API。
+  file_t *file = proc_getfile(proc_curr(), fd);
+  if (file == NULL) {
+    return -1;
+  }
+  return fseek(file, off, whence);
 }
 
+// 记录fd指向的文件的信息于st结构体中，成功返回0，失败返回-1
 int sys_fstat(int fd, struct stat *st) {
-  TODO(); // Lab3-1
+  // // TODO(); // Lab3-1
+  // 在proc_getfile从当前进程中取出对应文件描述符的file_t*后，首先判断文件类型，
+  // 磁盘文件的话调用磁盘文件系统的API（itype、isize、ino）来获得相关信息，设备文件的话只需要设置type为TYPE_DEV，其余两项均设为0即可。
+  file_t *file = proc_getfile(proc_curr(), fd);
+  if (file == NULL) {
+    return -1;
+  }
+  if (file->type == TYPE_FILE) {
+    st->type = itype(file->inode);
+    st->size = isize(file->inode);
+    st->node = ino(file->inode);
+  } else if (file->type == TYPE_DEV) {
+    st->type = TYPE_DEV;
+    st->size = 0;
+    st->node = 0;
+  }
+  return 0;
 }
 
 int sys_chdir(const char *path) {

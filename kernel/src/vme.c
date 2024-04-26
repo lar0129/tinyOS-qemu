@@ -214,6 +214,7 @@ void *vm_walk(PD *pgdir, size_t va, int prot) {
 void vm_map(PD *pgdir, size_t va, size_t len, int prot) {
   // Lab1-4: map [PAGE_DOWN(va), PAGE_UP(va+len)) at pgdir, with prot
   // if have already mapped pages, just let pte->prot |= prot
+  // prot = 0x7;
   assert(prot & PTE_P);
   assert((prot & ~7) == 0);
   size_t start = PAGE_DOWN(va);

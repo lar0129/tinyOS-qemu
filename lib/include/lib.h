@@ -99,6 +99,7 @@ struct stat {
   uint32_t type;
   uint32_t size;
   uint32_t node;
+  // 分别是这个文件的类型、大小和inode编号
 };
 
 #endif

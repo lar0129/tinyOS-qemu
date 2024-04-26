@@ -10,6 +10,7 @@ typedef struct inode inode_t;
 void init_fs();
 
 inode_t *iopen(const char *path, int type);
+// 从inode代表的文件的off偏移量处，读取len字节到内存的buf里
 int iread(inode_t *inode, uint32_t off, void *buf, uint32_t len);
 int iwrite(inode_t *inode, uint32_t off, const void *buf, uint32_t len);
 void itrunc(inode_t *inode);

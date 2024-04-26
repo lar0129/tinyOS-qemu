@@ -9,6 +9,8 @@
         "stdint.h": "c",
         "stdarg.h": "c",
         "type_traits": "c",
-        "philosopher.h": "c"
+        "philosopher.h": "c",
+        "typeinfo": "c",
+        "compare": "c"
     }
 }

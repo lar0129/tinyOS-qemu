@@ -38,7 +38,7 @@ typedef struct proc {
   int exit_code; // Lab2-3
   sem_t zombie_sem; // Lab2-4 管理"僵尸进程资源"
   usem_t *usems[MAX_USEM]; // Lab2-5 //一个进程至多持有MAX_USEM（32）个用户信号量，为NULL表示这个编号没有对应的信号量。
-  //file_t *files[MAX_UFILE]; // Lab3-1
+  file_t *files[MAX_UFILE]; // Lab3-1 //为NULL表示这个文件描述符没有对应的文件
   //inode_t *cwd; // Lab3-2
 } proc_t;
 
