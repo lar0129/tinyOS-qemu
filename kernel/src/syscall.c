@@ -63,17 +63,17 @@ int sys_brk(void *addr) {
   size_t brk = proc_curr()->brk;
   size_t new_brk = PAGE_UP(addr);  // 保证我们操作系统认为的program break一定不小于用户程序实际的program break
   if (brk == 0) {
-    brk = new_brk;
+    proc_curr()->brk = new_brk; // 修改时必须用当前进程的指针！！！不能用brk
   } else if (new_brk > brk) { // 说明用户程序需要增长堆区
     PD *pd_curr =vm_curr();
     // 创建[brk, new_brk)这段虚拟内存的映射
     vm_map(pd_curr, brk, new_brk - brk, 0x7);
-    brk = new_brk;
+    proc_curr()->brk = new_brk;// 修改时必须用当前进程的指针！！！不能用brk
   } else if (new_brk < brk) {
     // can just do nothing
     PD *pd_curr =vm_curr();
     vm_unmap(pd_curr, new_brk, brk - new_brk);
-    brk = new_brk;
+    proc_curr()->brk = new_brk;
   }
   return 0;
 }
