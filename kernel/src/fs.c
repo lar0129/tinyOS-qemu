@@ -460,7 +460,6 @@ int iread(inode_t *inode, uint32_t off, void *buf, uint32_t len) {
   if(off > inode->dinode.size) return -1;
   if(off + len > inode->dinode.size) len = inode->dinode.size - off; // 读取的字节数不能超过文件大小
 
-  char *cbuf = buf;
   int total_read = 0;
   uint32_t no = off / BLK_SIZE; // 逻辑块号
   uint32_t blkoff = off % BLK_SIZE; // 逻辑块内偏移
@@ -468,12 +467,11 @@ int iread(inode_t *inode, uint32_t off, void *buf, uint32_t len) {
     uint32_t blkno = iwalk(inode, no); // 物理块号
     uint32_t read_size = MIN(BLK_SIZE - blkoff, len); 
     // 三种限制条件：文件末尾、逻辑块末尾、读完len
-    bread(cbuf, read_size, blkno, blkoff);
-    cbuf += read_size;
+    bread(buf+total_read, read_size, blkno, blkoff);
     total_read += read_size;
     len -= read_size; // 判断有没有读完len、有没有到文件末尾
     blkoff = 0;
-    blkno++;
+    no++; // 找了很久的bug：分清逻辑blockno和物理no
   }
   return total_read;
 }
@@ -506,7 +504,8 @@ int iwrite(inode_t *inode, uint32_t off, const void *buf, uint32_t len) {
     total_write += write_size;
     len -= write_size; // 判断有没有写完len
     blkoff = 0;
-    blkno++;
+    // blkno++; 找了很久的bug：分清逻辑blockno和物理no
+    no++;
   }
   return total_write;
 }

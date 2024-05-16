@@ -10,6 +10,7 @@
       "request": "launch",
       "miDebuggerServerAddress": "127.0.0.1:1234",
       "program": "${workspaceFolder}/build/kernel/kernel",
+      // "program": "${workspaceFolder}/build/user/src/phase6/sh",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
