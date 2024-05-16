@@ -1,3 +1,4 @@
+// 一个打包文件为磁盘文件系统的工具——我们会使用这个工具来构建给QEMU运行的磁盘中的用户文件部分，即第32~32767号逻辑块
 #include <stdint.h>
 #include <stddef.h>
 #include <sys/mman.h>
@@ -88,7 +89,7 @@ blk_t *bitmap; // pointor to the bitmap block
 dinode_t *root; // pointor to the root dir's inode
 
 // get the pointer to the memory of block no
-static inline blk_t *bget(uint32_t no) {
+static inline blk_t *bget(uint32_t no) { // 忽略前32个操作系统的块
   assert(no >= BLK_OFF);
   return &(img->blocks[no - BLK_OFF]);
 }
@@ -112,9 +113,9 @@ int main(int argc, char *argv[]) {
   char *target = argv[1];
   int tfd = open(target, O_RDWR | O_CREAT | O_TRUNC, 0777);
   if (tfd < 0) panic("open target error");
-  if (ftruncate(tfd, IMG_SIZE) < 0) panic("truncate error");
+  if (ftruncate(tfd, IMG_SIZE) < 0) panic("truncate error"); // 把文件的大小扩展到(32768-32)×4KiB=127.875MiB（使用全0填充）
   // map the img to memory, you can edit file by edit memory
-  img = mmap(NULL, IMG_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, tfd, 0);
+  img = mmap(NULL, IMG_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, tfd, 0); // 把文件的内容映射到内存里,方便我们操作
   assert(img != (void*)-1);
   init_disk();
   for (int i = 2; i < argc; ++i) {
@@ -132,7 +133,7 @@ void init_disk() {
   sb->inum = INODE_NUM;
   bitmap = bget(BITMAP_BLK);
   // mark first 64 blocks used
-  bitmap->u32buf[0] = bitmap->u32buf[1] = 0xffffffff;
+  bitmap->u32buf[0] = bitmap->u32buf[1] = 0xffffffff; // data blocks 区从 64 号逻辑块开始
   // alloc and init root inode
   sb->root = ialloc(TYPE_DIR);
   root = iget(sb->root);
@@ -149,7 +150,7 @@ uint32_t balloc() {
   // alloc a unused block, mark it on bitmap, then return its no
   static uint32_t next_blk = 64;
   if (next_blk >= BLK_NUM) panic("no more block");
-  bitmap->u8buf[next_blk / 8] |= (1 << (next_blk % 8));
+  bitmap->u8buf[next_blk / 8] |= (1 << (next_blk % 8)); // 8位标志位
   return next_blk++;
 }
 
@@ -166,12 +167,30 @@ blk_t *iwalk(dinode_t *file, uint32_t blk_no) {
   // return the pointer to the file's data's blk_no th block, if no, alloc it
   if (blk_no < NDIRECT) {
     // direct address
-    TODO();
+    // // TODO();
+    int blk = file->addrs[blk_no];
+    if (blk == 0) {
+      file->addrs[blk_no] = balloc();
+      blk = file->addrs[blk_no];
+    }
+    return bget(blk);
   }
   blk_no -= NDIRECT;
   if (blk_no < NINDIRECT) {
     // indirect address
-    TODO();
+    // // TODO();
+    int indirect_blk = file->addrs[NDIRECT];
+    if (indirect_blk == 0) { // 间接块还没alloc
+      file->addrs[NDIRECT] = balloc();
+      indirect_blk = file->addrs[NDIRECT];
+    }
+    uint32_t *indirect = bget(indirect_blk)->u32buf; // 地址是32位的
+    int blk = indirect[blk_no];
+    if (blk == 0) {
+      indirect[blk_no] = balloc();
+      blk = indirect[blk_no];
+    }
+    return bget(blk);
   }
   panic("file too big");
 }
@@ -179,9 +198,26 @@ blk_t *iwalk(dinode_t *file, uint32_t blk_no) {
 void iappend(dinode_t *file, const void *buf, uint32_t size) {
   // append buf to file's data, remember to add file->size
   // you can append block by block
-  TODO();
+  // // TODO();
+  // 一个逻辑块一个逻辑块的追加——当前文件大小除以BLK_SIZE（4096）可以得到要写的逻辑块在文件索引里是第几项，
+  // 然后调用iwalk得到对应的逻辑块，当前文件大小对BLK_SIZE取模可以得到要写的字节的开始位于逻辑块的偏移量，
+  // 因此这次最多能写size和BLK_SIZE-偏移量中的较小值，写的时候直接利用memcpy在buf和逻辑块直接复制即可，
+  // 写完后将文件大小和buf向后移动本次写的字节数，size减去这么多字节——如此这么循环直至全部写完
+  uint32_t offset = file->size % BLK_SIZE; // 第一次写可能不和block对齐
+  uint32_t blk_no = file->size / BLK_SIZE;
+  while (size > 0) {
+    blk_t *blk = iwalk(file, blk_no);
+    uint32_t write_size = MIN(size, BLK_SIZE - offset); // 写可能不足一个块
+    memcpy(blk->u8buf + offset, buf, write_size);
+    file->size += write_size;
+    buf += write_size;
+    size -= write_size;
+    offset = 0;
+    blk_no++; // 溢出12后也在iwalk里处理
+  }
 }
 
+// 把文件添加到我们磁盘的根目录里
 void add_file(char *path) {
   static uint8_t buf[BLK_SIZE];
   FILE *fp = fopen(path, "rb");
@@ -195,6 +231,13 @@ void add_file(char *path) {
   strcpy(dirent.name, basename(path));
   iappend(root, &dirent, sizeof dirent);
   // write the file's data, first read it to buf then call iappend
-  TODO();
+  // // TODO();
+  // 循环调用fread和iappend，先用fread将文件内容读到buf中，再用iappend添加到磁盘中，直至读完整个文件
+  while (1) {
+    size_t size = fread(buf, 1, BLK_SIZE, fp); // 读取1*BLK_SIZE大小的数据到buf中
+    if (size == 0) break;
+    iappend(inode, buf, size); // 溢出block后也在iappend里处理
+  }
+
   fclose(fp);
 }

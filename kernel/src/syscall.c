@@ -313,10 +313,23 @@ int sys_fstat(int fd, struct stat *st) {
   return 0;
 }
 
+// 作用是改变当前进程的cwd为path这一路径指向的目录，成功返回0，失败返回-1
 int sys_chdir(const char *path) {
-  TODO(); // Lab3-2
+  // // TODO(); // Lab3-2
+  inode_t *inode = iopen(path,TYPE_NONE);
+  if (inode == NULL) {
+    return -1;
+  }
+  if (itype(inode) != TYPE_DIR) {
+    iclose(inode);
+    return -1;
+  }
+  iclose(proc_curr()->cwd);
+  proc_curr()->cwd = inode;
+  return 0;
 }
 
+// 作用就是删除这个文件，所以直接调用iremove即可
 int sys_unlink(const char *path) {
   return iremove(path);
 }

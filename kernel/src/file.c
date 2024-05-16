@@ -22,21 +22,38 @@ file_t *fopen(const char *path, int mode) {
   file_t *fp = falloc();
   inode_t *ip = NULL;
   if (!fp) goto bad;
-  // TODO: Lab3-2, determine type according to mode
+  // // TODO: Lab3-2, determine type according to mode
   // iopen in Lab3-2: if file exist, open and return it
   //       if file not exist and type==TYPE_NONE, return NULL
   //       if file not exist and type!=TYPE_NONE, create the file as type
   // you can ignore this in Lab3-1
   int open_type = 114514;
+  // 如果mode没有O_CREATE，说明不需要创建文件，应该设为TYPE_NONE，否则应根据是否有O_DIR位设置为TYPE_FILE或TYPE_DIR
+  if(mode & O_CREATE) {
+    if(mode & O_DIR) {
+      open_type = TYPE_DIR;
+    } else {
+      open_type = TYPE_FILE;
+    }
+  } else {
+    open_type = TYPE_NONE;
+  }
   ip = iopen(path, open_type);
   if (!ip) goto bad;
   int type = itype(ip);
   if (type == TYPE_FILE || type == TYPE_DIR) {
-    // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
+    // // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
+    // 如果mode有O_DIR，但打开的不是目录，应跳转到bad关闭文件并返回NULL；
+    if (type != TYPE_DIR && mode & O_DIR) goto bad;
+    // // TODO: Lab3-2, if type is DIR, go bad if mode WRITE or TRUNC
+    // 如果打开的是目录，但mode中有O_WRONLY、O_RDWR或O_TRUNC（即要写或清空），也应跳转到bad关闭文件并返回NULL。
+    if(type == TYPE_DIR && (mode & O_WRONLY || mode & O_RDWR || mode & O_TRUNC)) goto bad;
+    // // TODO: Lab3-2, if mode&O_TRUNC, trunc the file
+    //如果打开的是一个普通文件并且mode中有O_TRUNC，还需要调用itrunc清空该文件的内容。
+    if(type == TYPE_FILE && mode & O_TRUNC) {
+      itrunc(ip);
+    }
 
-    // TODO: Lab3-2, if type is DIR, go bad if mode WRITE or TRUNC
-
-    // TODO: Lab3-2, if mode&O_TRUNC, trunc the file
     // 将inode设置进file_t里，然后把偏移量初始化为0
     fp->type = TYPE_FILE; // file_t don't and needn't distingush between file and dir
     fp->inode = ip;

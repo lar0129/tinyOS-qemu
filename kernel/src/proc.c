@@ -16,10 +16,10 @@ void init_proc() {
   // 本身就在内核，不会遇到用户态到内核态的中断，所以用不到kstack这个“内核栈“，
   // 也可以设置成现在栈所在的那一页（(void*)(KER_MEM-PGSIZE)）
   pcb[0].kstack = (kstack_t*)((void*)(KER_MEM-PGSIZE));
-  
   // Lab2-4, init zombie_sem
   sem_init(&pcb[0].zombie_sem, 0);
   // Lab3-2, set cwd
+  pcb[0].cwd = iopen("/", TYPE_NONE);
 }
 
 proc_t *proc_alloc() {
@@ -39,6 +39,7 @@ proc_t *proc_alloc() {
       pcb[i].parent = NULL;
       pcb[i].child_num = 0;
       sem_init(&pcb[i].zombie_sem, 0);
+      pcb[i].cwd = NULL;
       for (int j = 0; j < MAX_USEM; j++) {
         pcb[i].usems[j] = NULL;
       }
@@ -121,6 +122,7 @@ void proc_copycurr(proc_t *proc) {
   }
   // Lab3-2: dup cwd
   // // TODO();
+  proc->cwd = idup(curr->cwd);
 }
 
 void proc_makezombie(proc_t *proc, int exitcode) {
@@ -153,6 +155,9 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   }
   // Lab3-2: close cwd
   // // TODO();
+  if(proc->cwd != NULL){
+    iclose(proc->cwd);
+  }
 }
 
 proc_t *proc_findzombie(proc_t *proc) {

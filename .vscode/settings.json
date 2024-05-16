@@ -11,6 +11,9 @@
         "type_traits": "c",
         "philosopher.h": "c",
         "typeinfo": "c",
-        "compare": "c"
+        "compare": "c",
+        "sysnum.h": "c",
+        "ulib.h": "c",
+        "mman.h": "c"
     }
 }
