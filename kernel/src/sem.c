@@ -7,6 +7,7 @@ void sem_init(sem_t *sem, int value) {
   list_init(&sem->wait_list);
 }
 
+// TODO: 线程通信，非必做
 void sem_p(sem_t *sem) {
   // Lab2-4: dec sem's value, if value<0, add curr proc to waitlist and block it
   // // TODO();
@@ -18,6 +19,7 @@ void sem_p(sem_t *sem) {
   }
 }
 
+// TODO: 线程通信，非必做
 void sem_v(sem_t *sem) {
   // Lab2-4: inc sem's value, if value<=0, dequeue a proc from waitlist and ready it
   // // TODO();

@@ -218,6 +218,7 @@ file_t *proc_getfile(proc_t *proc, int fd) {
 }
 
 // ctx参数的含义：每次中断的时候OS都会将当前状态作为一个中断上下文压栈保存在当前进程的内核栈里（写在Trap.S里）
+// TODO: 线程调度
 void schedule(Context *ctx) {
   // Lab2-1: save ctx to curr->ctx, then find a READY proc and run it
   // // TODO();

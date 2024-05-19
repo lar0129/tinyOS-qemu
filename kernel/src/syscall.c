@@ -78,6 +78,7 @@ int sys_brk(void *addr) {
   return 0;
 }
 
+// TODO: 线程调度
 void sys_sleep(int ticks) {
   // 在操作系统睡ticks刻时间，然后再回到用户程序。
   // // TODO(); // Lab1-7
@@ -138,6 +139,7 @@ int sys_fork() {
 }
 
 // 系统调用退出当前进程，并记录退出状态为status，父进程可以通过wait系统调用获取子进程的退出状态
+// TODO: 线程调度
 void sys_exit(int status) {
   // // TODO(); // Lab2-3
   // while (1) proc_yield();
@@ -149,6 +151,7 @@ void sys_exit(int status) {
 }
 
 // 返回一个退出的子进程的PID。如果status不为NULL，再把子进程的退出状态记录在那，最后释放这个子进程的PCB。
+// TODO: 线程调度
 int sys_wait(int *status) {
   // // TODO(); // Lab2-3,
   // sys_sleep(250);
@@ -336,6 +339,8 @@ int sys_unlink(const char *path) {
 
 // optional syscall
 
+// 分别是申请和释放一页共享内存，共享内存在fork时会被共享给子进程，也就是父子进程的这个虚拟地址映射到相同的物理地址。
+// 我们规定这种内存的虚拟地址都在USR_MEM以上，这样处理起来可能比较方便，对物理页维护引用计数是解决这个问题的好方法。
 void *sys_mmap() {
   TODO();
 }
@@ -344,6 +349,15 @@ void sys_munmap(void *addr) {
   TODO();
 }
 
+/*
+  实现的是内核级线程：调度由操作系统负责，可以利用时钟中断来切换
+  从entry这个函数开始执行，并传入参数 arg，栈区为[stack-PGSIZE, stack)。
+*/
+// 线程是同一进程内更小的计算单位。它们之间共享同一进程的地址空间，但是栈不同，寄存器也相互独立。
+// 创建一个线程，只需要为它分配一块栈区即可，不需要像fork一样进行地址空间拷贝
+
+//一个进程可能拥有若干个线程，因此你需要在kernel中设计相关的数据结构（线程描述符）来管理进程与线程之间的逻辑。
+//线程只有栈需要分配，而代码与全局变量这些静态数据是共享的。你需要正确处理线程与进程在调度与资源分配上的关系。
 int sys_clone(void (*entry)(void*), void *stack, void *arg) {
   TODO();
 }
