@@ -22,6 +22,8 @@ uint32_t ino(inode_t *inode);
 int idevid(inode_t *inode);
 void iadddev(const char *name, int id);
 int iremove(const char *path);
+int ilink(const char *path,inode_t *old_node);
+int ilookup_link(inode_t *parent, const char *name, int type, int old_no);
 
 #ifdef EASY_FS
 

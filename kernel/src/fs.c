@@ -128,13 +128,14 @@ typedef struct super_block {
 
 // On disk inode
 typedef struct dinode {
-  uint32_t type;   // file type
+  uint16_t type;   // file type
+  uint16_t nlink;    // reference count
   uint32_t device; // if it is a dev, its dev_id
   uint32_t size;   // file size
   uint32_t addrs[NDIRECT + 2]; // data block addresses, 11 direct and 1 indirect and 1 inindirect
 } dinode_t;
 
-struct inode { // 磁盘内的 inode 管理的是文件的信息，操作系统中的 inode 管理的是打开的文件的信息
+struct inode { // 操作系统中的 inode 管理的是打开的文件的信息
   int no; // inode 的编号
   int ref; //  inode 的引用计数
   int del; // 删除记号
@@ -176,6 +177,7 @@ static uint32_t dialloc(int type) {
       dinode.type = type;
       dinode.size = 0;
       dinode.device = 0;
+      dinode.nlink = 1;
       memset(dinode.addrs, 0, sizeof(dinode.addrs));
       diwrite(&dinode, i);
       return i;
@@ -666,6 +668,62 @@ int iremove(const char *path) {
 
   iclose(inode);
   iclose(parent);
+  return 0;
+}
+
+// 硬链接
+int ilink(const char *path,inode_t *old_node){
+  char name[MAX_NAME + 1];
+  int type = old_node->dinode.type;
+  int old_no = old_node->no;
+  if (skipelem(path, name) == NULL) {
+    // no parent dir for path, path is "" or "/" 
+    // "" is an invalid path, "/" is root dir
+    // 路径就一层， 特判
+    return -1;
+  }
+  // path do have parent, use iopen_parent and ilookup to open it
+  // remember to close the parent inode after you ilookup it
+  // // TODO();
+  inode_t *parent = iopen_parent(path, name);
+  if (parent == NULL) return -1;
+  int link_result = ilookup_link(parent, name, type, old_no);
+  iclose(parent); // ref -- 
+  return link_result;
+}
+
+int ilookup_link(inode_t *parent, const char *name, int type, int old_no) {
+  // Lab3-2: iterate the parent dir, find a file whose name is name
+  // if off is not NULL, store the offset of the dirent_t to it
+  // if no such file and type == TYPE_NONE, return NULL
+  // if no such file and type != TYPE_NONE, create the file with the type
+  assert(parent->dinode.type == TYPE_DIR); // parent must be a dir
+  dirent_t dirent;
+  uint32_t size = parent->dinode.size, empty = size;
+  for (uint32_t i = 0; i < size; i += sizeof dirent) {
+    // directory is a file containing a sequence of dirent structures
+    iread(parent, i, &dirent, sizeof dirent);
+    if (dirent.inode == 0) {
+      // a invalid dirent, record the offset (used in create file), then skip
+      // 记录空目录，待会儿用于创建
+      if (empty == size) empty = i;
+      continue;
+    }
+    // a valid dirent, compare the name
+    // // TODO();
+    if(strcmp(dirent.name, name) == 0) {
+      // found
+      return -1;
+    }
+  }
+  // not found
+  if (type == TYPE_NONE) return -1;
+  // need to create the file, first alloc inode, then init dirent, write it to parent
+  // if you create a dir, remember to init it's . and ..
+  // // TODO();
+  dirent.inode = old_no;
+  strcpy(dirent.name, name);
+  iwrite(parent, empty, &dirent, sizeof dirent);
   return 0;
 }
 

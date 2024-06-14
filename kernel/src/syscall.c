@@ -391,7 +391,13 @@ int sys_pipe(int fd[2]) {
 }
 
 int sys_link(const char *oldpath, const char *newpath) {
-  TODO();
+  // // TODO();
+  // 通过iremove和iopen来实现link，先打开oldpath，再创建newpath，最后关闭oldpath即可。
+  inode_t *inode = iopen(oldpath, TYPE_FILE);
+  if (inode == NULL) {
+    return -1;
+  }
+  return ilink(newpath, inode);
 }
 
 int sys_symlink(const char *oldpath, const char *newpath) {
