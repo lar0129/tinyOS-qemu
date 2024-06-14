@@ -13,7 +13,8 @@ uint32_t load_elf(PD *pgdir, const char *name) {
   inode_t *inode = iopen(name, TYPE_NONE);
   if (!inode) return -1;
   // 从inode代表的文件的'0'偏移量处，读取len字节到内存的elf里
-  iread(inode, 0, &elf, sizeof(elf));
+  iread(inode, 0, &elf, sizeof(elf));  
+  // iread -> bread -> read_disk -> outb(IO端口)，读取qemu模拟的磁盘文件
   if (*(uint32_t*)(&elf) != 0x464c457f) { // check ELF magic number
     iclose(inode);
     return -1;

@@ -9,6 +9,7 @@ void set_tss(uint32_t ss0, uint32_t esp0);
 void init_page();
 void *kalloc();
 void kfree(void *ptr);
+void kalloc_share_page(void *ptr);
 
 PD *vm_alloc();
 void vm_teardown(PD *pgdir);

@@ -1,6 +1,7 @@
 #include "klib.h"
 #include "cte.h"
 #include "proc.h"
+#include "vme.h"
 
 #define PROC_NUM 64
 

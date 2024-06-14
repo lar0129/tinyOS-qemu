@@ -25,10 +25,12 @@ static PT kpt[PHY_MEM / PT_SIZE] __attribute__((used));
 
 typedef union free_page {
   union free_page *next;
-  char buf[PGSIZE]; // 页的内容，前4位为指针
+  uint32_t ref; // 引用计数
+  char buf[PGSIZE]; // 页的内容，前4byte为指针
 } page_t;
 
 page_t *free_page_list;
+
 
 void init_page() {
   extern char end; // 地址end是链接器脚本生成的，指向内核的结束地址
@@ -61,9 +63,11 @@ void init_page() {
   page_t *start = (page_t*)PAGE_DOWN(KER_MEM);
   free_page_list = start;
   while ((uint32_t)free_page_list < (uint32_t)PHY_MEM - PGSIZE) {
+    free_page_list->ref = -1; // 默认非共享页
     free_page_list->next = (page_t*)(PAGE_DOWN((uint32_t)free_page_list + PGSIZE));
     free_page_list = free_page_list->next;
   }
+  free_page_list->ref = -1; // 默认非共享页
   free_page_list->next = NULL;
   free_page_list = start; // 回到页表的起始位置
 }
@@ -78,10 +82,29 @@ void *kalloc() {
   page_t *alloc_page = free_page_list;
   free_page_list = free_page_list->next;
 
-  for(int i = 0; i < PGSIZE; i++){
+  for(int i = 8; i < PGSIZE; i++){
     alloc_page->buf[i] = 0;
   }
+  alloc_page->ref = -1; // 默认非共享页
   return alloc_page;
+}
+
+// 设置一个页为共享页
+void kalloc_share_page(void *ptr) {
+  if ((uint32_t)ptr < KER_MEM || (uint32_t)ptr >= PHY_MEM)
+  {
+    panic("kfree: ptr not in kernel heap");
+  }
+  assert(PAGE_DOWN((uint32_t)free_page_list) >= KER_MEM && PAGE_DOWN((uint32_t)free_page_list) < PHY_MEM);
+  assert(PAGE_DOWN((uint32_t)ptr) >= KER_MEM && PAGE_DOWN((uint32_t)ptr) < PHY_MEM);
+
+  page_t *page = (page_t*)(PAGE_DOWN(ptr));
+  if(page->ref == -1){
+    page->ref = 1;
+  }
+  else{
+    page->ref++;
+  }
 }
 
 void kfree(void *ptr) {
@@ -95,12 +118,18 @@ void kfree(void *ptr) {
   assert(PAGE_DOWN((uint32_t)ptr) >= KER_MEM && PAGE_DOWN((uint32_t)ptr) < PHY_MEM);
 
   page_t *page = (page_t*)(PAGE_DOWN(ptr));
-  for(int i = 0; i < PGSIZE; i++){
+  for(int i = 8; i < PGSIZE; i++){
     page->buf[i] = 0;
+  }
+  // 特殊处理共享页
+  if(page->ref != -1){
+    page->ref--;
+    if(page->ref != 0){
+      return;
+    }
   }
   page->next = free_page_list;
   free_page_list = page;
-
 }
 
 PD *vm_alloc() {
@@ -194,13 +223,14 @@ void *vm_walk(PD *pgdir, size_t va, int prot) {
   // if prot&1 and prot voilation ((pte->val & prot & 7) != prot), call vm_pgfault
   if ((prot & 1) && (pte->val & prot & 7) != prot)
   {
+    Log("vm_walk: pte->val & prot & 7 != prot\n");
     vm_pgfault(va, 0);
   }
   assert(va>=PHY_MEM);
   // if va is not mapped and !(prot&1), return NULL 没找到映射好的物理地址
   if ((int32_t)PTE2PG(*pte) == 0 && !(prot&1))
   {
-    // panic("vm_walk: pte is not mapped and !prot&1");
+    Log("vm_walk: pte is not mapped and !prot&1\n");
     return NULL;
   }
 
@@ -290,10 +320,32 @@ void vm_copycurr(PD *pgdir) {
       // 复制的时候，首先调用vm_map添加这一虚拟页在pgdir中的映射（注意这一页在当前页目录中的权限和在pgdir中的权限应该一致），
       // 然后用vm_walk或vm_walkpte查出其在pgdir中映射到的物理页，
       // 接着调用memcpy把原来虚拟页的内容复制到这一新物理页即可
-      vm_map(pgdir, v_addr, PGSIZE, pte->val & 7);
       void *pa = vm_walk(vm_curr(), v_addr, 0);
-      void *new_pa = vm_walk(pgdir, v_addr, 0);
-      memcpy(new_pa, pa, PGSIZE);
+      printf("pa = %p\n", pa);
+      assert(pa <= (void*)PHY_MEM && pa >= (void*)KER_MEM);
+      // 区分共享内存
+      page_t *page = (page_t*)pa;
+      printf("page->next = %p\n", page->next);
+      printf("page->ref = %d\n", page->ref);
+      if(page->ref == -1){
+        vm_map(pgdir, v_addr, PGSIZE, pte->val & 7);
+        void *new_pa = vm_walk(pgdir, v_addr, 0);
+        memcpy(new_pa, pa, PGSIZE);
+      }
+      else if(page->ref > 0){ // 共享内存，两个proceed的pte映射到同一个物理页
+        pte->val = MAKE_PTE(page, pte->val & 7);
+        page->ref++;
+      }
+      else{
+        Log("vm_copycurr: page->ref < -1\n");
+        assert(0);
+      }
+      // vm_map(pgdir, v_addr, PGSIZE, pte->val & 7);
+      // void *new_pa = vm_walk(pgdir, v_addr, 0);
+      // memcpy(new_pa, pa, PGSIZE);
+      // assert(pa <= (void*)PHY_MEM && pa >= (void*)KER_MEM);
+      // assert(new_pa <= (void*)PHY_MEM && new_pa >= (void*)KER_MEM);
+
     }
   }
   // // TODO();

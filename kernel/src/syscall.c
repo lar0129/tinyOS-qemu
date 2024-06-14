@@ -128,6 +128,7 @@ void sys_yield() {
 }
 
 int sys_fork() {
+  Log("sys_fork\n");
   // // TODO(); // Lab2-2
   proc_t *child = proc_alloc();
   if (child == NULL) {
@@ -141,6 +142,7 @@ int sys_fork() {
 // 系统调用退出当前进程，并记录退出状态为status，父进程可以通过wait系统调用获取子进程的退出状态
 // TODO: 线程调度
 void sys_exit(int status) {
+  Log("sys_exit\n");
   // // TODO(); // Lab2-3
   // while (1) proc_yield();
   proc_makezombie(proc_curr(), status);
@@ -153,6 +155,7 @@ void sys_exit(int status) {
 // 返回一个退出的子进程的PID。如果status不为NULL，再把子进程的退出状态记录在那，最后释放这个子进程的PCB。
 // TODO: 线程调度
 int sys_wait(int *status) {
+  Log("sys_wait\n");
   // // TODO(); // Lab2-3,
   // sys_sleep(250);
   // return 0;
@@ -342,11 +345,27 @@ int sys_unlink(const char *path) {
 // 分别是申请和释放一页共享内存，共享内存在fork时会被共享给子进程，也就是父子进程的这个虚拟地址映射到相同的物理地址。
 // 我们规定这种内存的虚拟地址都在USR_MEM以上，这样处理起来可能比较方便，对物理页维护引用计数是解决这个问题的好方法。
 void *sys_mmap() {
-  TODO();
+  // // TODO();
+  PD *pd_curr = vm_curr();
+  // 映射到用户空间
+  for(size_t v_addr = PAGE_DOWN(PHY_MEM); v_addr < USR_MEM; v_addr += PGSIZE){
+    void *pa = vm_walk(pd_curr, v_addr, 7);
+    if(pa == NULL){
+      vm_map(pd_curr, v_addr, PGSIZE, 7); // 映射，kalloc一页
+      pa = vm_walk(pd_curr, v_addr, 7);
+      kalloc_share_page(pa);  // 设置为共享页
+      return pa;
+    }
+  }
+  Log("sys_mmap failed\n");
+  return NULL;
 }
 
 void sys_munmap(void *addr) {
-  TODO();
+  // // TODO();
+  // PD *pd_curr = vm_curr();
+  // vm_unmap(pd_curr, (size_t)addr, PGSIZE);
+  // kfree_share_page(addr);
 }
 
 /*

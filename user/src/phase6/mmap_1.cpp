@@ -1,7 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/mman.h>
+#include<ulib.h>
 
 int main(){
     char *shared_memory1 = (char *)mmap();
@@ -25,7 +22,7 @@ int main(){
         exit(0);
     }
     else{
-        wait(); // 父进程先等子进程
+        wait(0); // 父进程先等子进程
         printf("%s\n", shared_memory1);
         // shell输出Man, what can I say? Mamba Out!
         printf("%s\n", shared_memory2);
