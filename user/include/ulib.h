@@ -2,6 +2,7 @@
 #define __ULIB_H__
 
 #include "lib.h"
+// #include "sysnum.h"
 
 // compulsory syscall
 int write(int fd, const void *buf, size_t count);
@@ -50,6 +51,7 @@ int fprintf(int fd, const char *format, ...);
 char getchar();
 char *getline(char *buf, size_t size);
 int scanf(const char *format, ...);
+int mkfifo(const char *path, int mode);
 
 // stdlib
 void *sbrk(int increment);
@@ -69,5 +71,6 @@ struct dirent {
   size_t node;
   char name[MAX_NAME + 1];
 };
+
 
 #endif

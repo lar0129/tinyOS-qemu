@@ -27,6 +27,7 @@ void create_large_file(const char *path) {
             exit(1);
         }
         bytes_written += BUFFER_SIZE;
+        // printf("bytes_written: %d\n", bytes_written);
     }
     
     close(fd);
@@ -58,6 +59,7 @@ void read_and_verify_large_file(const char *path) {
             }
         }
         bytes_read += n;
+        // printf("bytes_read: %d\n", bytes_read);
     }
 
     close(fd);
@@ -67,12 +69,13 @@ void read_and_verify_large_file(const char *path) {
 void test_large_file() {
     // Create a large file and write data to it
     create_large_file(TEST_FILE);
-    
+    printf("finish create_large_file\n");
     // Read and verify the content of the large file
     read_and_verify_large_file(TEST_FILE);
-    
+    printf("finish read_and_verify_large_file\n");
     // Clean up: remove the test file
     unlink(TEST_FILE);
+    printf("finish unlink\n");
 }
 
 int main() {

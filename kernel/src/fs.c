@@ -112,8 +112,9 @@ int iremove(const char *path) {
 #define DISK_SIZE (128 * 1024 * 1024)
 #define BLK_NUM   (DISK_SIZE / BLK_SIZE)
 
-#define NDIRECT   12
+#define NDIRECT   11
 #define NINDIRECT (BLK_SIZE / sizeof(uint32_t))
+#define NININDIRECT (BLK_SIZE / sizeof(uint32_t)) * (BLK_SIZE / sizeof(uint32_t))
 
 #define IPERBLK   (BLK_SIZE / sizeof(dinode_t)) // inode num per blk
 
@@ -130,7 +131,7 @@ typedef struct dinode {
   uint32_t type;   // file type
   uint32_t device; // if it is a dev, its dev_id
   uint32_t size;   // file size
-  uint32_t addrs[NDIRECT + 1]; // data block addresses, 12 direct and 1 indirect
+  uint32_t addrs[NDIRECT + 2]; // data block addresses, 11 direct and 1 indirect and 1 inindirect
 } dinode_t;
 
 struct inode { // 磁盘内的 inode 管理的是文件的信息，操作系统中的 inode 管理的是打开的文件的信息
@@ -447,6 +448,29 @@ static uint32_t iwalk(inode_t *inode, uint32_t no) {
     }
     return blk;
   }
+  no -= NINDIRECT;
+  // 二级索引
+  if (no < NININDIRECT) {
+    int inindirect_blk = dinode->addrs[NDIRECT + 1];
+    if (inindirect_blk == 0) {
+      dinode->addrs[NDIRECT + 1] = balloc();
+      inindirect_blk = dinode->addrs[NDIRECT + 1];
+      iupdate(inode);
+    }
+    uint32_t indirect_blk;
+    bread(&indirect_blk, 4, inindirect_blk, no / NINDIRECT * 4); // 例：2050个block在第 2050/1024=2个indirect_blk中
+    if (indirect_blk == 0) {
+      indirect_blk = balloc();
+      bwrite(&indirect_blk, 4, inindirect_blk, no / NINDIRECT * 4);
+    }
+    uint32_t blk;
+    bread(&blk, 4, indirect_blk, no % NINDIRECT * 4); // 例：2050个block在第2个indirect_blk的第2050%1024=2个blk中
+    if (blk == 0) {
+      blk = balloc();
+      bwrite(&blk, 4, indirect_blk, no % NINDIRECT * 4);
+    }
+    return blk;
+  }
   assert(0); // file too big, not need to handle this case
 }
 
@@ -527,10 +551,27 @@ void itrunc(inode_t *inode) {
       uint32_t blkno;
       bread(&blkno, 4, inode->dinode.addrs[NDIRECT], i * 4);
       if(blkno != 0) bfree(blkno);
-      // 不需要bzero，操作系统后手block不代表清空磁盘
+      // 不需要bzero，操作系统回收block不代表清空磁盘
     }
     bfree(inode->dinode.addrs[NDIRECT]);
     inode->dinode.addrs[NDIRECT] = 0;
+  }
+  // 二级索引
+  if(inode->dinode.addrs[NDIRECT + 1] != 0){
+    for(int i = 0; i < NINDIRECT; i++){
+      uint32_t indirect_blk;
+      bread(&indirect_blk, 4, inode->dinode.addrs[NDIRECT + 1], i * 4);
+      if(indirect_blk != 0){
+        for(int j = 0; j < NINDIRECT; j++){
+          uint32_t blkno;
+          bread(&blkno, 4, indirect_blk, j * 4);
+          if(blkno != 0) bfree(blkno);
+        }
+        bfree(indirect_blk);
+      }
+    }
+    bfree(inode->dinode.addrs[NDIRECT + 1]);
+    inode->dinode.addrs[NDIRECT + 1] = 0;
   }
   inode->dinode.size = 0;
   iupdate(inode);
@@ -599,6 +640,7 @@ int iremove(const char *path) {
   // remove a file just need to clean the dirent points to it and set its inode's del
   // the real remove will be done at iclose, after everyone close it
   // // TODO();
+  // printf("iremove: %s\n", path);
   char name[MAX_NAME + 1];
   inode_t *parent = iopen_parent(path, name);
   if (parent == NULL) return -1;

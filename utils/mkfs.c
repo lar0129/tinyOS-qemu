@@ -42,8 +42,9 @@ void panic(const char *msg) {
 #define IPERBLK   (BLK_SIZE / sizeof(dinode_t)) // inode num per blk
 #define INODE_NUM ((DATA_START - INODE_START) * IPERBLK)
 
-#define NDIRECT   12
+#define NDIRECT   11
 #define NINDIRECT (BLK_SIZE / sizeof(uint32_t))
+#define NININDIRECT (NINDIRECT * NINDIRECT)
 
 #define TYPE_NONE 0
 #define TYPE_FILE 1
@@ -72,7 +73,7 @@ typedef struct {
   uint32_t type;   // file type
   uint32_t device; // if it is a dev, its dev_id
   uint32_t size;   // file size
-  uint32_t addrs[NDIRECT + 1]; // data block addresses, 12 direct and 1 indirect
+  uint32_t addrs[NDIRECT + 2]; // data block addresses, 11 direct and 2 indirect
 } dinode_t;
 
 // directory is a file containing a sequence of dirent structures
@@ -189,6 +190,30 @@ blk_t *iwalk(dinode_t *file, uint32_t blk_no) {
     if (blk == 0) {
       indirect[blk_no] = balloc();
       blk = indirect[blk_no];
+    }
+    return bget(blk);
+  }
+  blk_no -= NINDIRECT;
+  if (blk_no < NININDIRECT) {
+    // double indirect address
+    // // TODO();
+    int double_indirect_blk = file->addrs[NDIRECT + 1];
+    if (double_indirect_blk == 0) { // 双间接块还没alloc
+      file->addrs[NDIRECT + 1] = balloc();
+      double_indirect_blk = file->addrs[NDIRECT + 1];
+    }
+    uint32_t *double_indirect = bget(double_indirect_blk)->u32buf;
+    int indirect_blk_no = blk_no / NINDIRECT;
+    int indirect_blk = double_indirect[indirect_blk_no];
+    if (indirect_blk == 0) {
+      double_indirect[indirect_blk_no] = balloc();
+      indirect_blk = double_indirect[indirect_blk_no];
+    }
+    uint32_t *indirect = bget(indirect_blk)->u32buf;
+    int blk = indirect[blk_no % NINDIRECT];
+    if (blk == 0) {
+      indirect[blk_no % NINDIRECT] = balloc();
+      blk = indirect[blk_no % NINDIRECT];
     }
     return bget(blk);
   }
