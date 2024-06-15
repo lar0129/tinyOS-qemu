@@ -57,6 +57,22 @@ int main() {
         printf("Error: Failed to unlink %s\n", FILENAME);
         return 1;
     }
+    
+    fd = open(LINKNAME, O_RDONLY);
+    if (fd < 0) {
+        printf("Error: Failed to open %s\n", LINKNAME);
+        return 1;
+    }
+    size_t bytesRead2 = read(fd, buffer, sizeof(buffer) - 1);
+    if (bytesRead2 < 0) {
+        printf("Error: Failed to read from %s\n", LINKNAME);
+        close(fd);
+        return 1;
+    }
+    buffer[bytesRead2] = '\0';  // Null-terminate the string
+    close(fd);
+    printf("After remove file ,Content read from %s:\n%s", LINKNAME, buffer);
+
     if (unlink(LINKNAME) < 0) {
         printf("Error: Failed to unlink %s\n", LINKNAME);
         return 1;

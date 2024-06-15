@@ -588,10 +588,10 @@ inode_t *idup(inode_t *inode) {
 void iclose(inode_t *inode) {
   assert(inode);
   if (inode->ref == 1 && inode->del) {
-    itrunc(inode);
     inode->dinode.nlink--;
     iupdate(inode);
     if (inode->dinode.nlink == 0) {
+      itrunc(inode);
       difree(inode->no);
     }
   }
