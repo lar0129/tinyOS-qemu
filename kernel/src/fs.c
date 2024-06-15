@@ -589,7 +589,11 @@ void iclose(inode_t *inode) {
   assert(inode);
   if (inode->ref == 1 && inode->del) {
     itrunc(inode);
-    difree(inode->no);
+    inode->dinode.nlink--;
+    iupdate(inode);
+    if (inode->dinode.nlink == 0) {
+      difree(inode->no);
+    }
   }
   inode->ref -= 1;
 }
@@ -688,6 +692,10 @@ int ilink(const char *path,inode_t *old_node){
   inode_t *parent = iopen_parent(path, name);
   if (parent == NULL) return -1;
   int link_result = ilookup_link(parent, name, type, old_no);
+  if(link_result == 0) {
+    old_node->dinode.nlink++;
+    iupdate(old_node);
+  }
   iclose(parent); // ref -- 
   return link_result;
 }
