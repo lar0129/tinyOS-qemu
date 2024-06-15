@@ -41,7 +41,7 @@ file_t *fopen(const char *path, int mode) {
   ip = iopen(path, open_type);
   if (!ip) goto bad;
   int type = itype(ip);
-  if (type == TYPE_FILE || type == TYPE_DIR) {
+  if (type == TYPE_FILE || type == TYPE_DIR || type == TYPE_SOFTLINK) {
     // // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
     // 如果mode有O_DIR，但打开的不是目录，应跳转到bad关闭文件并返回NULL；
     if (type != TYPE_DIR && mode & O_DIR) goto bad;

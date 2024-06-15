@@ -24,6 +24,8 @@ void iadddev(const char *name, int id);
 int iremove(const char *path);
 int ilink(const char *path,inode_t *old_node);
 int ilookup_link(inode_t *parent, const char *name, int type, int old_no);
+int isymlink(const char *path,const char *link_path);
+int ilookup_symlink(inode_t *parent, const char *name, int type, const char *link_path);
 
 #ifdef EASY_FS
 

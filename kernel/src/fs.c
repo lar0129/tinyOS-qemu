@@ -414,6 +414,13 @@ inode_t *iopen(const char *path, int type) {
   inode_t *parent = iopen_parent(path, name);
   if (parent == NULL) return NULL;
   inode_t *inode = ilookup(parent, name, NULL, type); // 打开/创建均在ilookup中完成
+  // if(inode->dinode.type == TYPE_SOFTLINK){
+  //   // 软链接
+  //   char buf[MAX_NAME + 1];
+  //   iread(inode, 0, buf, inode->dinode.size);
+  //   iclose(inode);
+  //   inode = iopen(buf, type);
+  // }
   iclose(parent); // ref -- 
   return inode;
 }
@@ -735,4 +742,66 @@ int ilookup_link(inode_t *parent, const char *name, int type, int old_no) {
   return 0;
 }
 
+// 软链接
+int isymlink(const char *path,const char *link_path){
+  char name[MAX_NAME + 1];
+  int type = TYPE_SOFTLINK;
+  if (skipelem(path, name) == NULL) {
+    // no parent dir for path, path is "" or "/" 
+    // "" is an invalid path, "/" is root dir
+    // 路径就一层， 特判
+    return -1;
+  }
+  // path do have parent, use iopen_parent and ilookup to open it
+  // remember to close the parent inode after you ilookup it
+  // // TODO();
+  inode_t *parent = iopen_parent(path, name);
+  if (parent == NULL) return -1;
+  int link_result = ilookup_symlink(parent, name, type,link_path );
+  iclose(parent); // ref -- 
+  return link_result;
+}
+
+int ilookup_symlink(inode_t *parent, const char *name, int type, const char *link_path) {
+  // Lab3-2: iterate the parent dir, find a file whose name is name
+  // if off is not NULL, store the offset of the dirent_t to it
+  // if no such file and type == TYPE_NONE, return NULL
+  // if no such file and type != TYPE_NONE, create the file with the type
+  assert(parent->dinode.type == TYPE_DIR); // parent must be a dir
+  dirent_t dirent;
+  uint32_t size = parent->dinode.size, empty = size;
+  for (uint32_t i = 0; i < size; i += sizeof dirent) {
+    // directory is a file containing a sequence of dirent structures
+    iread(parent, i, &dirent, sizeof dirent);
+    if (dirent.inode == 0) {
+      // a invalid dirent, record the offset (used in create file), then skip
+      // 记录空目录，待会儿用于创建
+      if (empty == size) empty = i;
+      continue;
+    }
+    // a valid dirent, compare the name
+    // // TODO();
+    if(strcmp(dirent.name, name) == 0) {
+      // found
+      return -1;
+    }
+  }
+  // not found
+  if (type == TYPE_NONE) return -1;
+  // need to create the file, first alloc inode, then init dirent, write it to parent
+  // if you create a dir, remember to init it's . and ..
+  // // TODO();
+  // 创建软链接dinode
+  uint32_t ino = dialloc(type);
+  dirent.inode = ino;
+  strcpy(dirent.name, name);
+  iwrite(parent, empty, &dirent, sizeof dirent);
+  // 初始化软连接inode
+  inode_t *inode = iget(ino);
+  inode->dinode.size = strlen(link_path);
+  iwrite(inode, 0, link_path, inode->dinode.size);
+  iupdate(inode);
+  iclose(inode);
+  return 0;
+}
 #endif

@@ -50,6 +50,8 @@ void test_symlink() {
     
     // Clean up: remove the test file and the symlink
     unlink(TEST_FILE);
+    read_file_and_print(SYMLINK);
+    
     unlink(SYMLINK);
 }
 
