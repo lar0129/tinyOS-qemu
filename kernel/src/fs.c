@@ -414,9 +414,11 @@ inode_t *iopen(const char *path, int type) {
   inode_t *parent = iopen_parent(path, name);
   if (parent == NULL) return NULL;
   inode_t *inode = ilookup(parent, name, NULL, type); // 打开/创建均在ilookup中完成
-  // printf("inode name: %s\n", name);
-  // printf("inode no: %d\n", inode->no);
-  // printf("itype: %d\n", itype(inode));
+  if(inode == NULL) {
+    iclose(parent);
+    return NULL;
+  }
+  
   if(itype(inode) == TYPE_SOFTLINK){
     // 软链接
     char link_path[MAX_NAME + 1];
