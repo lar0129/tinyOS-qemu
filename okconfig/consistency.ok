@@ -39,7 +39,8 @@
         "kernel/src/timer.c",
         "kernel/src/trap.S",
         "kernel/src/vme.c",
-        "utils/mkfs.c"
+        "utils/mkfs.c",
+        "lib/include/lib.h"
     ],
     "tests": {},
     "protocols": [
