@@ -47,7 +47,7 @@ void test_symlink() {
     
     // Read and print the content via the symlink
     read_file_and_print(SYMLINK);
-    
+    read_file_and_print(TEST_FILE);
     // Clean up: remove the test file and the symlink
     unlink(TEST_FILE);
     read_file_and_print(SYMLINK);

@@ -392,7 +392,7 @@ int sys_pipe(int fd[2]) {
 
 int sys_link(const char *oldpath, const char *newpath) {
   // // TODO();
-  inode_t *inode = iopen(oldpath, TYPE_FILE);
+  inode_t *inode = iopen(oldpath, TYPE_NONE);
   if (inode == NULL) {
     return -1;
   }

@@ -414,13 +414,17 @@ inode_t *iopen(const char *path, int type) {
   inode_t *parent = iopen_parent(path, name);
   if (parent == NULL) return NULL;
   inode_t *inode = ilookup(parent, name, NULL, type); // 打开/创建均在ilookup中完成
-  // if(inode->dinode.type == TYPE_SOFTLINK){
-  //   // 软链接
-  //   char buf[MAX_NAME + 1];
-  //   iread(inode, 0, buf, inode->dinode.size);
-  //   iclose(inode);
-  //   inode = iopen(buf, type);
-  // }
+  // printf("inode name: %s\n", name);
+  // printf("inode no: %d\n", inode->no);
+  // printf("itype: %d\n", itype(inode));
+  if(itype(inode) == TYPE_SOFTLINK){
+    // 软链接
+    char link_path[MAX_NAME + 1];
+    int link_path_len = iread(inode, 0, link_path, inode->dinode.size);
+    link_path[link_path_len] = '\0';
+    iclose(inode);
+    inode = iopen(link_path, type);
+  }
   iclose(parent); // ref -- 
   return inode;
 }
@@ -698,7 +702,7 @@ int ilink(const char *path,inode_t *old_node){
   // // TODO();
   inode_t *parent = iopen_parent(path, name);
   if (parent == NULL) return -1;
-  int link_result = ilookup_link(parent, name, type, old_no);
+  int link_result = icreate_link(parent, name, type, old_no);
   if(link_result == 0) {
     old_node->dinode.nlink++;
     iupdate(old_node);
@@ -707,7 +711,7 @@ int ilink(const char *path,inode_t *old_node){
   return link_result;
 }
 
-int ilookup_link(inode_t *parent, const char *name, int type, int old_no) {
+int icreate_link(inode_t *parent, const char *name, int type, int old_no) {
   // Lab3-2: iterate the parent dir, find a file whose name is name
   // if off is not NULL, store the offset of the dirent_t to it
   // if no such file and type == TYPE_NONE, return NULL
@@ -743,10 +747,10 @@ int ilookup_link(inode_t *parent, const char *name, int type, int old_no) {
 }
 
 // 软链接
-int isymlink(const char *path,const char *link_path){
+int isymlink(const char *newpath,const char *oldpath){
   char name[MAX_NAME + 1];
   int type = TYPE_SOFTLINK;
-  if (skipelem(path, name) == NULL) {
+  if (skipelem(newpath, name) == NULL) {
     // no parent dir for path, path is "" or "/" 
     // "" is an invalid path, "/" is root dir
     // 路径就一层， 特判
@@ -755,14 +759,14 @@ int isymlink(const char *path,const char *link_path){
   // path do have parent, use iopen_parent and ilookup to open it
   // remember to close the parent inode after you ilookup it
   // // TODO();
-  inode_t *parent = iopen_parent(path, name);
+  inode_t *parent = iopen_parent(newpath, name);
   if (parent == NULL) return -1;
-  int link_result = ilookup_symlink(parent, name, type,link_path );
+  int link_result = icreate_symlink(parent, name, type,oldpath );
   iclose(parent); // ref -- 
   return link_result;
 }
 
-int ilookup_symlink(inode_t *parent, const char *name, int type, const char *link_path) {
+int icreate_symlink(inode_t *parent, const char *name, int type, const char *oldpath) {
   // Lab3-2: iterate the parent dir, find a file whose name is name
   // if off is not NULL, store the offset of the dirent_t to it
   // if no such file and type == TYPE_NONE, return NULL
@@ -798,8 +802,9 @@ int ilookup_symlink(inode_t *parent, const char *name, int type, const char *lin
   iwrite(parent, empty, &dirent, sizeof dirent);
   // 初始化软连接inode
   inode_t *inode = iget(ino);
-  inode->dinode.size = strlen(link_path);
-  iwrite(inode, 0, link_path, inode->dinode.size);
+  int len = strlen(oldpath);
+  inode->dinode.size = len;
+  iwrite(inode, 0, oldpath, inode->dinode.size);
   iupdate(inode);
   iclose(inode);
   return 0;
