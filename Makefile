@@ -2,7 +2,7 @@
 
 default: all
 
-.PHONY: clean clean-all clean-fs all qemu qemu-gdb gdb print-gdbport grade submit pack
+.PHONY: clean clean-all clean-fs all qemu qemu-gdb gdb print-gdbport grade submit pack submit-big
 
 # REMEMBER TO MAKE CLEAN AFTER CHANGE ME!
 STAGE  := phase6
@@ -54,6 +54,9 @@ grade:
 
 submit:
 	python3 ok --insecure --config okconfig/$(STAGE).ok --submit
+
+submit-big:
+	python3 ok --insecure --config okconfig/consistency.ok --submit
 
 pack:
 	mkdir -p build/submit
