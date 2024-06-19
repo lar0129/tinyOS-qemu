@@ -389,13 +389,17 @@ int sys_cv_close(int cv_id) {
 int sys_pipe(int fd[2]) {
   // return 0 if success, -1 if failed
   // // TODO();
-  file_t *file0 = NULL;
-  file_t *file1 = NULL;
-  int res = fcreate_pipe(&file0, &file1);
-  if (res == -1) {
+  file_t *file0 = fcreate_pipe(0);
+  if (file0 == NULL) {
     panic("sys_pipe: fcreate_pipe failed");
     return -1;
   }
+  file_t *file1 = fcreate_pipe(1);
+  if (file1 == NULL) {
+    panic("sys_pipe: fcreate_pipe failed");
+    return -1;
+  }
+  file1->pipe = file0->pipe;
 
   fd[0] = proc_allocfile(proc_curr());
   if (fd[0] == -1) {
@@ -432,11 +436,8 @@ int sys_symlink(const char *oldpath, const char *newpath) {
 
 int sys_mkfifo(const char *path, int mode) {
 
-  file_t *file = fopen(path, mode);
-  if (file == NULL) {
-    return -1;
-  }
-  return 0;
+  int result =  fcreate_fifo(path, mode);
+  return result;
 }
 
 void *syscall_handle[NR_SYS] = {

@@ -17,6 +17,9 @@ typedef struct pipe {
     sem_t read_sem;
     sem_t write_sem;
     sem_t mutex;
+    // fifo
+    sem_t read_wait;
+    sem_t write_wait;
 } pipe_t;
 
 typedef struct file {
@@ -41,7 +44,7 @@ int fwrite(file_t *file, const void *buf, uint32_t size);
 uint32_t fseek(file_t *file, uint32_t off, int whence);
 file_t *fdup(file_t *file);
 void fclose(file_t *file);
-int fcreate_pipe(file_t **pread_file, file_t **pwrite_file);
+file_t * fcreate_pipe(int mod);
 int fcreate_fifo(const char *path, int mode);
 
 #endif

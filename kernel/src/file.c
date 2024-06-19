@@ -70,14 +70,10 @@ file_t *fopen(const char *path, int mode) {
     fp->type = TYPE_FIFO;
     fp->inode = ip;
     fp->offset = 0;
-    fp->pipe = (pipe_t *)kalloc();
-    fp->pipe->read_pos = 0;
-    fp->pipe->write_pos = 0;
-    fp->pipe->read_open = (mode & O_RDONLY) || (mode & O_RDWR);
-    fp->pipe->write_open = (mode & O_WRONLY) || (mode & O_RDWR);
+    iread(ip, 0, &fp->pipe, sizeof(pipe_t *));
+    fp->pipe->read_open += (mode & O_RDONLY) || (mode & O_RDWR);
+    fp->pipe->write_open += (mode & O_WRONLY) || (mode & O_RDWR);
     // 初始化信号量
-    sem_init(&fp->pipe->read_sem, 0);
-    sem_init(&fp->pipe->write_sem, 0);
   }
   else assert(0);
   fp->readable = !(mode & O_WRONLY);
@@ -97,9 +93,13 @@ int fread(file_t *file, void *buf, uint32_t size) {
   if(file->type == TYPE_PIPE_WRITE) panic("fread: TYPE_PIPE_WRITE\n");
 
   if(file->type == TYPE_PIPE_READ || file->type == TYPE_FIFO){
+    if(file->type == TYPE_FIFO ) {
+      sem_v(&file->pipe->read_wait);
+      sem_p(&file->pipe->write_wait);
+    }
     int read_size = 0;
     pipe_t *p = file->pipe;
-    if(p->write_open == 0){
+    if(p->write_open == 0){ // 写端全部关闭，读端不再会被阻塞（会唤醒所有被阻塞的读端），读取管道中剩余的可读字节。
       while (p->read_pos != p->write_pos && read_size < size) {
         ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
         if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
@@ -111,7 +111,7 @@ int fread(file_t *file, void *buf, uint32_t size) {
         sem_p(&p->mutex);
         // printf("read_pos: %d\n", p->read_pos);
         // printf("write_pos: %d\n", p->write_pos);
-        if (p->read_pos == p->write_pos && p->write_open == 0) {
+        if (p->read_pos == p->write_pos && p->write_open == 0) { // 阻塞后被“无写者”唤醒，一直读到管道为空
             sem_v(&p->mutex);
             return read_size;
         }
@@ -145,13 +145,17 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
   if(file->type == TYPE_PIPE_READ) panic("fwrite: TYPE_PIPE_READ\n");
 
   if(file->type == TYPE_PIPE_WRITE || file->type == TYPE_FIFO){
+    if(file->type == TYPE_FIFO ) {
+      sem_v(&file->pipe->write_wait);
+      sem_p(&file->pipe->read_wait);
+    }
     int write_size = 0;
     pipe_t *p = file->pipe;
     while (write_size < size) { // 写完size才返回
-        sem_p(&p->write_sem);
+        sem_p(&p->write_sem); // 若管道满，阻塞，待会儿再写
         sem_p(&p->mutex);
 
-        if (p->read_open == 0) {
+        if (p->read_open == 0) { // 阻塞后被“无读者”唤醒，不再允许写入
             sem_v(&p->mutex);
             return write_size; // Read end closed
         }
@@ -161,8 +165,6 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
 
         sem_v(&p->mutex);
         sem_v(&p->read_sem); 
-        // printf("read_sem: %d\n", p->read_sem.value);
-        // printf("write_sem: %d\n", p->write_sem.value);
     }
     return write_size;
   }
@@ -241,49 +243,36 @@ void fclose(file_t *file) {
   }
 }
 
-int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
+file_t * fcreate_pipe(int mod) {
   // create a pipe, return 0 if success, -1 if failed
   // 读端文件描述符存在fd[0]，写端文件描述符存在fd[1]
-  file_t * read_file = falloc();
-  file_t * write_file = falloc();
-  if(!read_file || !write_file) {
-    if(read_file) fclose(read_file);
-    if(write_file) fclose(write_file);
-    panic("fcreate_pipe: invalid file\n");
-    return -1;
+  file_t * file = falloc();
+  if(!file) return NULL;
+  if(mod == 0) {
+    file->type = TYPE_PIPE_READ;
+    file->readable = 1;
+    file->writable = 0;
+    file->pipe = (pipe_t *)kalloc();
+    file->pipe->read_pos = 0;
+    file->pipe->write_pos = 0;
+    file->pipe->read_open = 1;
+    file->pipe->write_open = 1;
+    // 初始化信号量
+    sem_init(&file->pipe->read_sem, 0);
+    sem_init(&file->pipe->write_sem, PIPE_SIZE);
+    sem_init(&file->pipe->mutex, 1);
+  } else {
+    file->type = TYPE_PIPE_WRITE;
+    file->readable = 0;
+    file->writable = 1;
   }
-  *pread_file = read_file;
-  *pwrite_file = write_file;
-  read_file->pipe = (pipe_t *)kalloc();
-  write_file->pipe = read_file->pipe;
-  read_file->type = TYPE_PIPE_READ;
-  write_file->type = TYPE_PIPE_WRITE;
-  // read_file->pipe = (pipe_t*)kalloc(); // 为pipe_t分配内存
-  // write_file->pipe = read_file->pipe;
-  read_file->readable = 1;
-  read_file->writable = 0;
-  write_file->readable = 0;
-  write_file->writable = 1;
-  read_file->pipe->read_pos = 0;
-  read_file->pipe->write_pos = 0;
-  read_file->pipe->read_open = 1;
-  read_file->pipe->write_open = 1;
-  // 初始化信号量
-  sem_init(&read_file->pipe->read_sem, 0);
-  sem_init(&read_file->pipe->write_sem, PIPE_SIZE);
-  sem_init(&read_file->pipe->mutex, 1);
-  return 0;
+  return file;
 }
 
 int fcreate_fifo(const char *path, int mode){
   // create a fifo, return 0 if success, -1 if failed
   // // TODO();
-  file_t *fp = falloc();
   inode_t *ip = NULL;
-  if (!fp){
-    panic("fcreate_fifo: falloc failed\n");
-    return -1;
-  }
   int open_type = 114514;
   // 如果mode有O_CREATE，说明需要创建文件，应该设为TYPE_FIFO
   if(mode & O_CREATE) {
@@ -293,6 +282,19 @@ int fcreate_fifo(const char *path, int mode){
       panic("fcreate_fifo: iopen failed\n");
       return -1;
     }
+    pipe_t *p = (pipe_t *)kalloc();
+    // printf("p: %d\n", p);
+    p->read_open = 0;
+    p->write_open = 0;
+    p->read_pos = 0;
+    p->write_pos = 0;
+    sem_init(&p->read_sem, 0);
+    sem_init(&p->write_sem, PIPE_SIZE);
+    sem_init(&p->mutex, 1);
+    sem_init(&p->read_wait, 0);
+    sem_init(&p->write_wait, 0);
+    iwrite(ip, 0, &p, sizeof(pipe_t *)); // 将pipe_t写入inode
+    iclose(ip);
   }
   return 0;
 }
