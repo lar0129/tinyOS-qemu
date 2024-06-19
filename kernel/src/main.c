@@ -21,6 +21,7 @@ int main() {
   init_dev(); // uncomment me at Lab3-1
 
   printf("Hello from OS!\n");
+  Log("test DEBUG");
   init_user_and_go();
   panic("should never come back");
 }

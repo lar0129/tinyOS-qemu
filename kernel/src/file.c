@@ -245,10 +245,6 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   }
   *pread_file = read_file;
   *pwrite_file = write_file;
-  if (read_file == NULL || write_file == NULL) {
-    panic("sys_pipe: falloc failed");
-    return -1;
-  }
   read_file->pipe = (pipe_t *)kalloc();
   write_file->pipe = read_file->pipe;
   read_file->type = TYPE_PIPE_READ;
@@ -263,10 +259,6 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   read_file->pipe->write_pos = 0;
   read_file->pipe->read_open = 1;
   read_file->pipe->write_open = 1;
-  write_file->pipe->read_pos = 0;
-  write_file->pipe->write_pos = 0;
-  write_file->pipe->read_open = 1;
-  write_file->pipe->write_open = 1;
   // 初始化信号量
   sem_init(&read_file->pipe->read_sem, 0);
   sem_init(&read_file->pipe->write_sem, 0);

@@ -389,10 +389,6 @@ int sys_cv_close(int cv_id) {
 int sys_pipe(int fd[2]) {
   // return 0 if success, -1 if failed
   // // TODO();
-  if (fd[0] == -1 || fd[1] == -1) {
-    panic("sys_pipe: proc_allocfile failed");
-    return -1;
-  }
   file_t *file0 = NULL;
   file_t *file1 = NULL;
   int res = fcreate_pipe(&file0, &file1);
@@ -402,8 +398,16 @@ int sys_pipe(int fd[2]) {
   }
 
   fd[0] = proc_allocfile(proc_curr());
+  if (fd[0] == -1) {
+    panic("sys_pipe: proc_allocfile failed");
+    return -1;
+  }
   proc_curr()->files[fd[0]] = file0;
   fd[1] = proc_allocfile(proc_curr());
+  if (fd[0] == -1) {
+    panic("sys_pipe: proc_allocfile failed");
+    return -1;
+  }
   proc_curr()->files[fd[1]] = file1;
   // printf("sys_pipe: fd[0] = %d, fd[1] = %d\n", fd[0], fd[1]);
   // printf("sys_pipe: file0 = %x, file1 = %x\n", file0, file1);
