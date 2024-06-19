@@ -432,8 +432,11 @@ int sys_symlink(const char *oldpath, const char *newpath) {
 
 int sys_mkfifo(const char *path, int mode) {
 
-  int result = open(path,mode);
-  return result;
+  file_t *file = fopen(path, mode);
+  if (file == NULL) {
+    return -1;
+  }
+  return 0;
 }
 
 void *syscall_handle[NR_SYS] = {
