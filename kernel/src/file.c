@@ -6,6 +6,7 @@
 #define TOTAL_FILE 128
 
 file_t files[TOTAL_FILE]; //代表整个操作系统可以使用的file_t就这么多
+pipe_t pipe; //代表整个操作系统可以使用的pipe_t就这么多
 
 static file_t *falloc() {
   // Lab3-1: find a file whose ref==0, init it, inc ref and return it, return NULL if none
@@ -111,7 +112,7 @@ int fread(file_t *file, void *buf, uint32_t size) {
         sem_p(&p->mutex);
         // printf("read_pos: %d\n", p->read_pos);
         // printf("write_pos: %d\n", p->write_pos);
-        if (p->read_pos == p->write_pos && p->write_open == 0) { // 阻塞后被“无写者”唤醒，一直读到管道为空
+        if (p->write_open == 0) { // 阻塞后被“无写者”唤醒，一直读到管道为空
             sem_v(&p->mutex);
             return read_size;
         }
@@ -252,7 +253,8 @@ file_t * fcreate_pipe(int mod) {
     file->type = TYPE_PIPE_READ;
     file->readable = 1;
     file->writable = 0;
-    file->pipe = (pipe_t *)kalloc();
+    // pipe_t p = {};
+    file->pipe = &pipe;
     file->pipe->read_pos = 0;
     file->pipe->write_pos = 0;
     file->pipe->read_open = 1;
@@ -282,7 +284,7 @@ int fcreate_fifo(const char *path, int mode){
       panic("fcreate_fifo: iopen failed\n");
       return -1;
     }
-    pipe_t *p = (pipe_t *)kalloc();
+    pipe_t *p = &pipe;
     // printf("p: %d\n", p);
     p->read_open = 0;
     p->write_open = 0;
