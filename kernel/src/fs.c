@@ -750,6 +750,10 @@ int icreate_link(inode_t *parent, const char *name, int type, int old_no) {
 
 // 软链接
 int isymlink(const char *newpath,const char *oldpath){
+  inode_t *old_node = iopen(oldpath, TYPE_NONE);
+  if(old_node == NULL) return -1;
+  iclose(old_node);
+
   char name[MAX_NAME + 1];
   int type = TYPE_SOFTLINK;
   if (skipelem(newpath, name) == NULL) {
