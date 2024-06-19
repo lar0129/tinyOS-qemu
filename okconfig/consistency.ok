@@ -41,7 +41,7 @@
         "kernel/src/vme.c",
         "utils/mkfs.c",
         "lib/include/lib.h",
-        "lib/include/sysnum.h",
+        "lib/include/sysnum.h"
     ],
     "tests": {},
     "protocols": [
