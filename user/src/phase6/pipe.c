@@ -11,7 +11,7 @@ int main() {
     }
     write_msg[130] = '\0';
     // char write_msg[] = "Hello, pipe!";
-    char read_msg[23];
+    char read_msg[12];
     int nbytes;
 
     // 创建管道
@@ -64,6 +64,7 @@ int main() {
             printf("Parent write from pipe failed in pipetest, x = %d \n", x);
             return -1;
         }
+        write(fd[1], write_msg, strlen(write_msg));
         write(fd[1], write_msg, strlen(write_msg));
         write(fd[1], write_msg, strlen(write_msg));
         printf("Parent finish writing to the pipe.\n");

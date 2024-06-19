@@ -99,11 +99,19 @@ int fread(file_t *file, void *buf, uint32_t size) {
   if(file->type == TYPE_PIPE_READ || file->type == TYPE_FIFO){
     int read_size = 0;
     pipe_t *p = file->pipe;
+    if(p->write_open == 0){
+      while (p->read_pos != p->write_pos) {
+        ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
+        if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
+      }
+      return read_size;
+    }
     while (read_size < size) {
         sem_p(&p->read_sem);
         sem_p(&p->mutex);
-
-        if (p->read_pos == p->write_pos && !p->write_open) {
+        // printf("read_pos: %d\n", p->read_pos);
+        // printf("write_pos: %d\n", p->write_pos);
+        if (p->read_pos == p->write_pos && p->write_open == 0) {
             sem_v(&p->mutex);
             return read_size;
         }
@@ -143,7 +151,7 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
         sem_p(&p->write_sem);
         sem_p(&p->mutex);
 
-        if (!p->read_open) {
+        if (p->read_open == 0) {
             sem_v(&p->mutex);
             return write_size; // Read end closed
         }
@@ -153,6 +161,8 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
 
         sem_v(&p->mutex);
         sem_v(&p->read_sem); 
+        // printf("read_sem: %d\n", p->read_sem.value);
+        // printf("write_sem: %d\n", p->write_sem.value);
     }
     return write_size;
   }
