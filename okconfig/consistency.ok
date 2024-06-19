@@ -42,7 +42,6 @@
         "utils/mkfs.c",
         "lib/include/lib.h",
         "lib/include/sysnum.h",
-        "user/include/ulib.h"
     ],
     "tests": {},
     "protocols": [
