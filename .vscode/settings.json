@@ -14,6 +14,7 @@
         "compare": "c",
         "sysnum.h": "c",
         "ulib.h": "c",
-        "mman.h": "c"
+        "mman.h": "c",
+        "file.h": "c"
     }
 }

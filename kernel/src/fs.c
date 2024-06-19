@@ -414,7 +414,7 @@ inode_t *iopen(const char *path, int type) {
   inode_t *parent = iopen_parent(path, name);
   if (parent == NULL) return NULL;
   inode_t *inode = ilookup(parent, name, NULL, type); // 打开/创建均在ilookup中完成
-  if(inode == NULL) {
+  if(inode == NULL) { // 文件不存在且type为TYPE_NONE（意思是不创建）
     iclose(parent);
     return NULL;
   }

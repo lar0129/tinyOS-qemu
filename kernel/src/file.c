@@ -1,5 +1,7 @@
 #include "klib.h"
 #include "file.h"
+#include "sem.h"
+#include "vme.h"
 
 #define TOTAL_FILE 128
 
@@ -55,7 +57,7 @@ file_t *fopen(const char *path, int mode) {
     }
 
     // 将inode设置进file_t里，然后把偏移量初始化为0
-    fp->type = TYPE_FILE; // file_t don't and needn't distingush between file and dir
+    fp->type = TYPE_FILE; // file_t don't and needn't distingush between file and dir and softlink
     fp->inode = ip;
     fp->offset = 0;
   } else if (type == TYPE_DEV) {
@@ -79,7 +81,32 @@ int fread(file_t *file, void *buf, uint32_t size) {
   // remember to add offset if type is FILE (check if iread return value >= 0!)
   if (!file->readable) return -1;
   // // TODO();
-  if(file->type == TYPE_FILE) {
+
+  if(file->type == TYPE_PIPE){
+    int read_size = 0;
+    pipe_t *pipe = file->pipe;
+    while (read_size < size) {
+      if (pipe->read_pos == pipe->write_pos) { // 读空了
+        if (!pipe->write_open) { // 读空了且写端已关闭
+          return read_size;
+        }
+        if(read_size > 0){
+          return read_size;
+        }
+        Log("fread: read empty, sem_p(read_sem)\n");
+        sem_p(&pipe->read_sem); // 读空了，等待写端告知
+      } else {
+        ((char*)buf)[read_size++] = pipe->buffer[pipe->read_pos];
+        pipe->read_pos = (pipe->read_pos + 1) % PIPE_SIZE;
+      }
+    }
+    if(read_size > 0){
+      Log("fread: read_size > 0, sem_v(write_sem)\n");
+      sem_v(&pipe->write_sem); // 通知写端
+    }
+    return read_size;
+  }
+  else if(file->type == TYPE_FILE) {
     int read_size = iread(file->inode, file->offset, buf, size);
     if(read_size >= 0) {
       file->offset += read_size;
@@ -97,7 +124,32 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
   // remember to add offset if type is FILE (check if iwrite return value >= 0!)
   if (!file->writable) return -1;
   // // TODO();
-  if(file->type == TYPE_FILE) {
+
+  if(file->type == TYPE_PIPE){
+    int write_size = 0;
+    pipe_t *pipe = file->pipe;
+    while (write_size < size) {
+      if ((pipe->write_pos + 1) % PIPE_SIZE == pipe->read_pos) { // 写满了
+        if (!pipe->read_open) { // 写满了且读端已关闭
+          return write_size;
+        }
+        Log("fwrite: write full, sem_p(write_sem)\n");
+        sem_p(&pipe->write_sem); // 写满了，等待读端告知
+      } 
+      else { // 未写满
+        pipe->buffer[pipe->write_pos] = ((char*)buf)[write_size++];
+        pipe->write_pos = (pipe->write_pos + 1) % PIPE_SIZE;
+      }
+    }
+    if(write_size > 0){
+      Log("fwrite: write_size > 0, sem_v(read_sem)\n");
+      Log("read pos, write_pos: %d %d\n", pipe->read_pos, pipe->write_pos);
+      sem_v(&pipe->read_sem); // 通知读端
+    }
+    return write_size;
+  }
+  
+  else if(file->type == TYPE_FILE) {
     int write_size = iwrite(file->inode, file->offset, buf, size);
     if(write_size >= 0) {
       file->offset += write_size;
@@ -149,4 +201,45 @@ void fclose(file_t *file) {
   if(file->ref == 0 && file->type == TYPE_FILE) {
     iclose(file->inode); // 磁盘的关闭文件
   }
+}
+
+int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
+  // create a pipe, return 0 if success, -1 if failed
+  // 读端文件描述符存在fd[0]，写端文件描述符存在fd[1]
+  file_t * read_file = falloc();
+  file_t * write_file = falloc();
+  *pread_file = read_file;
+  *pwrite_file = write_file;
+  if (read_file == NULL || write_file == NULL) {
+    panic("sys_pipe: falloc failed");
+    return -1;
+  }
+  read_file->pipe = (pipe_t *)kalloc();
+  write_file->pipe = read_file->pipe;
+  if(!read_file || !write_file) {
+    if(read_file) fclose(read_file);
+    if(write_file) fclose(write_file);
+    Log("fcreate_pipe: invalid file\n");
+    return -1;
+  }
+  read_file->type = TYPE_PIPE;
+  write_file->type = TYPE_PIPE;
+  // read_file->pipe = (pipe_t*)kalloc(); // 为pipe_t分配内存
+  // write_file->pipe = read_file->pipe;
+  read_file->readable = 1;
+  read_file->writable = 0;
+  write_file->readable = 0;
+  write_file->writable = 1;
+  read_file->pipe->read_pos = 0;
+  read_file->pipe->write_pos = 0;
+  read_file->pipe->read_open = 1;
+  read_file->pipe->write_open = 1;
+  write_file->pipe->read_pos = 0;
+  write_file->pipe->write_pos = 0;
+  write_file->pipe->read_open = 1;
+  write_file->pipe->write_open = 1;
+  // 初始化信号量
+  sem_init(&read_file->pipe->read_sem, 0);
+  sem_init(&read_file->pipe->write_sem, 1);
+  return 0;
 }

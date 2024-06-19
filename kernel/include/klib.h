@@ -1,6 +1,6 @@
 #ifndef __KLIB_H__
 #define __KLIB_H__
-#define DEBUG // comment me if need
+// #define DEBUG // comment me if need
 
 #include "lib.h"
 #include "x86.h"

@@ -81,6 +81,7 @@ char *strtok(char *__restrict s, const char *__restrict delim);
 #define TYPE_DIR  2
 #define TYPE_DEV  3
 #define TYPE_SOFTLINK  4
+#define TYPE_PIPE  5
 
 // open mode
 #define O_RDONLY  0x000
