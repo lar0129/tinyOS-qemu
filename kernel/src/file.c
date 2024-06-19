@@ -43,7 +43,7 @@ file_t *fopen(const char *path, int mode) {
   ip = iopen(path, open_type);
   if (!ip) goto bad;
   int type = itype(ip);
-  if (type == TYPE_FILE || type == TYPE_DIR || type == TYPE_SOFTLINK || type == TYPE_FIFO) {
+  if (type == TYPE_FILE || type == TYPE_DIR || type == TYPE_SOFTLINK) {
     // // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
     // 如果mode有O_DIR，但打开的不是目录，应跳转到bad关闭文件并返回NULL；
     if (type != TYPE_DIR && mode & O_DIR) goto bad;
@@ -157,6 +157,7 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
         }
         // Log("fwrite: write full, sem_p(write_sem)\n");
         sem_p(&pipe->write_sem); // 写满了，等待读端告知
+        if(pipe->read_open <= 0) return write_size; // 读端已关闭，不再允许写入
       } 
       else { // 未写满
         pipe->buffer[pipe->write_pos] = ((char*)buf)[write_size++];
