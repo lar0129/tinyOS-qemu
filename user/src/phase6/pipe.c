@@ -5,11 +5,12 @@
 int main() {
     printf("pipetest begins.\n");
     int fd[2];
-    char write_msg[130];
-    for(int i = 0; i < 129; i++) {
-        write_msg[i] = 'a' + i % 26;
-    }
-    write_msg[129] = '\0';
+    // char write_msg[130];
+    // for(int i = 0; i < 129; i++) {
+    //     write_msg[i] = 'a' + i % 26;
+    // }
+    // write_msg[129] = '\0';
+    char write_msg[] = "Hello, pipe!";
     char read_msg[128];
     int nbytes;
 
@@ -55,6 +56,7 @@ int main() {
     } else {
         // 父进程
         close(fd[0]); // 关闭读端
+        // close(fd[1]); // 关闭写端
 
 
         // 向管道写入数据

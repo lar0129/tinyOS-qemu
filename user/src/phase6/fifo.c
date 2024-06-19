@@ -46,7 +46,7 @@ int main() {
         writer_process();
         exit(0);
     }
-
+    // 两个子进程
     int reader_pid = fork();
     if (reader_pid == -1) {
         printf("Failed to fork reader process.\n");

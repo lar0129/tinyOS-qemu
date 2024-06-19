@@ -43,7 +43,7 @@ file_t *fopen(const char *path, int mode) {
   ip = iopen(path, open_type);
   if (!ip) goto bad;
   int type = itype(ip);
-  if (type == TYPE_FILE || type == TYPE_DIR || type == TYPE_SOFTLINK) {
+  if (type == TYPE_FILE || type == TYPE_DIR || type == TYPE_SOFTLINK || type == TYPE_FIFO) {
     // // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
     // 如果mode有O_DIR，但打开的不是目录，应跳转到bad关闭文件并返回NULL；
     if (type != TYPE_DIR && mode & O_DIR) goto bad;
@@ -66,7 +66,20 @@ file_t *fopen(const char *path, int mode) {
     fp->dev_op = dev_get(idevid(ip));
     iclose(ip);
     ip = NULL;
-  } else assert(0);
+  } else if(type == TYPE_FIFO){
+    fp->type = TYPE_FIFO;
+    fp->inode = ip;
+    fp->offset = 0;
+    fp->pipe = (pipe_t *)kalloc();
+    fp->pipe->read_pos = 0;
+    fp->pipe->write_pos = 0;
+    fp->pipe->read_open = (mode & O_RDONLY) || (mode & O_RDWR);
+    fp->pipe->write_open = (mode & O_WRONLY) || (mode & O_RDWR);
+    // 初始化信号量
+    sem_init(&fp->pipe->read_sem, 0);
+    sem_init(&fp->pipe->write_sem, 0);
+  }
+  else assert(0);
   fp->readable = !(mode & O_WRONLY);
   fp->writable = (mode & O_WRONLY) || (mode & O_RDWR);
   return fp;
@@ -83,7 +96,7 @@ int fread(file_t *file, void *buf, uint32_t size) {
   // // TODO();
   if(file->type == TYPE_PIPE_WRITE) panic("fread: TYPE_PIPE_WRITE\n");
 
-  if(file->type == TYPE_PIPE_READ){
+  if(file->type == TYPE_PIPE_READ || file->type == TYPE_FIFO){
     int read_size = 0;
     pipe_t *pipe = file->pipe;
     while (read_size < size) {
@@ -130,7 +143,7 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
   // // TODO();
   if(file->type == TYPE_PIPE_READ) panic("fwrite: TYPE_PIPE_READ\n");
 
-  if(file->type == TYPE_PIPE_WRITE){
+  if(file->type == TYPE_PIPE_WRITE || file->type == TYPE_FIFO){
     int write_size = 0;
     pipe_t *pipe = file->pipe;
     while (write_size < size) { // 写完size才返回
@@ -262,5 +275,27 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   // 初始化信号量
   sem_init(&read_file->pipe->read_sem, 0);
   sem_init(&read_file->pipe->write_sem, 0);
+  return 0;
+}
+
+int fcreate_fifo(const char *path, int mode){
+  // create a fifo, return 0 if success, -1 if failed
+  // // TODO();
+  file_t *fp = falloc();
+  inode_t *ip = NULL;
+  if (!fp){
+    panic("fcreate_fifo: falloc failed\n");
+    return -1;
+  }
+  int open_type = 114514;
+  // 如果mode有O_CREATE，说明需要创建文件，应该设为TYPE_FIFO
+  if(mode & O_CREATE) {
+    open_type = TYPE_FIFO;
+    ip = iopen(path, open_type); // 在inode中创建文件
+    if(!ip){
+      panic("fcreate_fifo: iopen failed\n");
+      return -1;
+    }
+  }
   return 0;
 }

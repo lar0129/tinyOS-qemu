@@ -83,6 +83,7 @@ char *strtok(char *__restrict s, const char *__restrict delim);
 #define TYPE_SOFTLINK  4
 #define TYPE_PIPE_READ  5
 #define TYPE_PIPE_WRITE  6
+#define TYPE_FIFO  7
 
 
 // open mode

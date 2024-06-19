@@ -42,5 +42,6 @@ uint32_t fseek(file_t *file, uint32_t off, int whence);
 file_t *fdup(file_t *file);
 void fclose(file_t *file);
 int fcreate_pipe(file_t **pread_file, file_t **pwrite_file);
+int fcreate_fifo(const char *path, int mode);
 
 #endif

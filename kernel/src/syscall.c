@@ -431,7 +431,8 @@ int sys_symlink(const char *oldpath, const char *newpath) {
 }
 
 int sys_mkfifo(const char *path, int mode) {
-  int result = 0;
+
+  int result = fcreate_fifo(path,mode);
   return result;
 }
 
