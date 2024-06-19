@@ -5,13 +5,13 @@
 int main() {
     printf("pipetest begins.\n");
     int fd[2];
-    char write_msg[130];
-    for(int i = 0; i < 129; i++) {
+    char write_msg[131];
+    for(int i = 0; i < 130; i++) {
         write_msg[i] = 'a' + i % 26;
     }
-    write_msg[129] = '\0';
+    write_msg[130] = '\0';
     // char write_msg[] = "Hello, pipe!";
-    char read_msg[130];
+    char read_msg[23];
     int nbytes;
 
     // 创建管道
@@ -58,10 +58,10 @@ int main() {
         close(fd[0]); // 关闭读端
         // close(fd[1]); // 关闭写端
 
-
+        int x = 0;
         // 向管道写入数据
-        if (write(fd[1], write_msg, strlen(write_msg)) != strlen(write_msg)) {
-            printf("Parent write from pipe failed in pipetest.\n");
+        if ((x=write(fd[1], write_msg, strlen(write_msg))) != strlen(write_msg)) {
+            printf("Parent write from pipe failed in pipetest, x = %d \n", x);
             return -1;
         }
         write(fd[1], write_msg, strlen(write_msg));

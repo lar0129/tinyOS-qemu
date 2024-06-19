@@ -16,7 +16,7 @@ typedef struct pipe {
     int write_open;
     sem_t read_sem;
     sem_t write_sem;
-    // struct sem_t mutex;
+    sem_t mutex;
 } pipe_t;
 
 typedef struct file {

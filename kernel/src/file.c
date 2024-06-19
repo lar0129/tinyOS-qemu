@@ -98,28 +98,21 @@ int fread(file_t *file, void *buf, uint32_t size) {
 
   if(file->type == TYPE_PIPE_READ || file->type == TYPE_FIFO){
     int read_size = 0;
-    pipe_t *pipe = file->pipe;
+    pipe_t *p = file->pipe;
     while (read_size < size) {
-      if (pipe->read_pos == pipe->write_pos) { // 读空了
-        if(read_size > 0){ // 读到了一些数据，直接返回
-          // Log("fread: read_size > 0, sem_v(write_sem)\n");
-          sem_v(&pipe->write_sem); // 通知写端
-          return read_size;
-        }
+        sem_p(&p->read_sem);
+        sem_p(&p->mutex);
 
-        if (pipe->write_open <= 0) { // 读空了且写端已关闭，直接返回（包括read_size=0)
-          return read_size;
+        if (p->read_pos == p->write_pos && !p->write_open) {
+            sem_v(&p->mutex);
+            return read_size;
         }
-        // Log("fread: read empty, sem_p(read_sem)\n");
-        sem_p(&pipe->read_sem); // 读空了但未读到数据，等待写端告知
-      } else {
-        ((char*)buf)[read_size++] = pipe->buffer[pipe->read_pos];
-        pipe->read_pos = (pipe->read_pos + 1) % PIPE_SIZE;
-      }
-    }
-    if(read_size > 0){
-      // Log("fread: read_size > 0, sem_v(write_sem)\n");
-      sem_v(&pipe->write_sem); // 通知写端
+          
+        ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
+        if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
+
+        sem_v(&p->mutex);
+        sem_v(&p->write_sem);
     }
     return read_size;
   }
@@ -145,29 +138,21 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
 
   if(file->type == TYPE_PIPE_WRITE || file->type == TYPE_FIFO){
     int write_size = 0;
-    pipe_t *pipe = file->pipe;
+    pipe_t *p = file->pipe;
     while (write_size < size) { // 写完size才返回
-      if ((pipe->write_pos + 1) % PIPE_SIZE == pipe->read_pos) { // 写满了
-        if(write_size > 0){
-          // Log("fwrite: write_size > 0, sem_v(read_sem)\n");
-          sem_v(&pipe->read_sem); // 通知读端
+        sem_p(&p->write_sem);
+        sem_p(&p->mutex);
+
+        if (!p->read_open) {
+            sem_v(&p->mutex);
+            return write_size; // Read end closed
         }
-        if (pipe->read_open <= 0) { // 写满了且读端已关闭
-          return write_size;
-        }
-        // Log("fwrite: write full, sem_p(write_sem)\n");
-        sem_p(&pipe->write_sem); // 写满了，等待读端告知
-        if(pipe->read_open <= 0) return write_size; // 读端已关闭，不再允许写入
-      } 
-      else { // 未写满
-        pipe->buffer[pipe->write_pos] = ((char*)buf)[write_size++];
-        pipe->write_pos = (pipe->write_pos + 1) % PIPE_SIZE;
-      }
-    }
-    if(write_size > 0){
-      // Log("fwrite: write_size > 0, sem_v(read_sem)\n");
-      // Log("read pos, write_pos: %d %d\n", pipe->read_pos, pipe->write_pos);
-      sem_v(&pipe->read_sem); // 通知读端
+
+        p->buffer[p->write_pos++] = ((char*)buf)[write_size++];
+        if (p->write_pos == PIPE_SIZE) p->write_pos = 0;
+
+        sem_v(&p->mutex);
+        sem_v(&p->read_sem); 
     }
     return write_size;
   }
@@ -275,7 +260,8 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   read_file->pipe->write_open = 1;
   // 初始化信号量
   sem_init(&read_file->pipe->read_sem, 0);
-  sem_init(&read_file->pipe->write_sem, 0);
+  sem_init(&read_file->pipe->write_sem, PIPE_SIZE);
+  sem_init(&read_file->pipe->mutex, 1);
   return 0;
 }
 
