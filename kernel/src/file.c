@@ -87,21 +87,24 @@ int fread(file_t *file, void *buf, uint32_t size) {
     pipe_t *pipe = file->pipe;
     while (read_size < size) {
       if (pipe->read_pos == pipe->write_pos) { // 读空了
-        if (!pipe->write_open) { // 读空了且写端已关闭
+        if(read_size > 0){ // 读到了一些数据，直接返回
+          // Log("fread: read_size > 0, sem_v(write_sem)\n");
+          sem_v(&pipe->write_sem); // 通知写端
           return read_size;
         }
-        if(read_size > 0){
+
+        if (!pipe->write_open) { // 读空了且写端已关闭，直接返回（包括read_size=0)
           return read_size;
         }
-        Log("fread: read empty, sem_p(read_sem)\n");
-        sem_p(&pipe->read_sem); // 读空了，等待写端告知
+        // Log("fread: read empty, sem_p(read_sem)\n");
+        sem_p(&pipe->read_sem); // 读空了但未读到数据，等待写端告知
       } else {
         ((char*)buf)[read_size++] = pipe->buffer[pipe->read_pos];
         pipe->read_pos = (pipe->read_pos + 1) % PIPE_SIZE;
       }
     }
     if(read_size > 0){
-      Log("fread: read_size > 0, sem_v(write_sem)\n");
+      // Log("fread: read_size > 0, sem_v(write_sem)\n");
       sem_v(&pipe->write_sem); // 通知写端
     }
     return read_size;
@@ -128,12 +131,16 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
   if(file->type == TYPE_PIPE){
     int write_size = 0;
     pipe_t *pipe = file->pipe;
-    while (write_size < size) {
+    while (write_size < size) { // 写完size才返回
       if ((pipe->write_pos + 1) % PIPE_SIZE == pipe->read_pos) { // 写满了
+        if(write_size > 0){
+          // Log("fwrite: write_size > 0, sem_v(read_sem)\n");
+          sem_v(&pipe->read_sem); // 通知读端
+        }
         if (!pipe->read_open) { // 写满了且读端已关闭
           return write_size;
         }
-        Log("fwrite: write full, sem_p(write_sem)\n");
+        // Log("fwrite: write full, sem_p(write_sem)\n");
         sem_p(&pipe->write_sem); // 写满了，等待读端告知
       } 
       else { // 未写满
@@ -142,8 +149,8 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
       }
     }
     if(write_size > 0){
-      Log("fwrite: write_size > 0, sem_v(read_sem)\n");
-      Log("read pos, write_pos: %d %d\n", pipe->read_pos, pipe->write_pos);
+      // Log("fwrite: write_size > 0, sem_v(read_sem)\n");
+      // Log("read pos, write_pos: %d %d\n", pipe->read_pos, pipe->write_pos);
       sem_v(&pipe->read_sem); // 通知读端
     }
     return write_size;
@@ -208,6 +215,12 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   // 读端文件描述符存在fd[0]，写端文件描述符存在fd[1]
   file_t * read_file = falloc();
   file_t * write_file = falloc();
+  if(!read_file || !write_file) {
+    if(read_file) fclose(read_file);
+    if(write_file) fclose(write_file);
+    panic("fcreate_pipe: invalid file\n");
+    return -1;
+  }
   *pread_file = read_file;
   *pwrite_file = write_file;
   if (read_file == NULL || write_file == NULL) {
@@ -216,12 +229,6 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   }
   read_file->pipe = (pipe_t *)kalloc();
   write_file->pipe = read_file->pipe;
-  if(!read_file || !write_file) {
-    if(read_file) fclose(read_file);
-    if(write_file) fclose(write_file);
-    Log("fcreate_pipe: invalid file\n");
-    return -1;
-  }
   read_file->type = TYPE_PIPE;
   write_file->type = TYPE_PIPE;
   // read_file->pipe = (pipe_t*)kalloc(); // 为pipe_t分配内存
