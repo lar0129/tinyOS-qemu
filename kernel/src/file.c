@@ -81,8 +81,9 @@ int fread(file_t *file, void *buf, uint32_t size) {
   // remember to add offset if type is FILE (check if iread return value >= 0!)
   if (!file->readable) return -1;
   // // TODO();
+  if(file->type == TYPE_PIPE_WRITE) panic("fread: TYPE_PIPE_WRITE\n");
 
-  if(file->type == TYPE_PIPE){
+  if(file->type == TYPE_PIPE_READ){
     int read_size = 0;
     pipe_t *pipe = file->pipe;
     while (read_size < size) {
@@ -93,7 +94,7 @@ int fread(file_t *file, void *buf, uint32_t size) {
           return read_size;
         }
 
-        if (!pipe->write_open) { // 读空了且写端已关闭，直接返回（包括read_size=0)
+        if (pipe->write_open <= 0) { // 读空了且写端已关闭，直接返回（包括read_size=0)
           return read_size;
         }
         // Log("fread: read empty, sem_p(read_sem)\n");
@@ -127,8 +128,9 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
   // remember to add offset if type is FILE (check if iwrite return value >= 0!)
   if (!file->writable) return -1;
   // // TODO();
+  if(file->type == TYPE_PIPE_READ) panic("fwrite: TYPE_PIPE_READ\n");
 
-  if(file->type == TYPE_PIPE){
+  if(file->type == TYPE_PIPE_WRITE){
     int write_size = 0;
     pipe_t *pipe = file->pipe;
     while (write_size < size) { // 写完size才返回
@@ -137,7 +139,7 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
           // Log("fwrite: write_size > 0, sem_v(read_sem)\n");
           sem_v(&pipe->read_sem); // 通知读端
         }
-        if (!pipe->read_open) { // 写满了且读端已关闭
+        if (pipe->read_open <= 0) { // 写满了且读端已关闭
           return write_size;
         }
         // Log("fwrite: write full, sem_p(write_sem)\n");
@@ -198,6 +200,12 @@ file_t *fdup(file_t *file) {
   // Lab3-1, inc file's ref, then return itself
   // // TODO();
   ++file->ref;
+  if(file->type == TYPE_PIPE_READ) {
+    file->pipe->read_open++;
+  }
+  if(file->type == TYPE_PIPE_WRITE) {
+    file->pipe->write_open++;
+  }
   return file;
 }
 
@@ -207,6 +215,20 @@ void fclose(file_t *file) {
   --file->ref; // 当前进程的关闭文件
   if(file->ref == 0 && file->type == TYPE_FILE) {
     iclose(file->inode); // 磁盘的关闭文件
+  }
+  // 若读端全部被关闭，写端不再会被阻塞（会唤醒所有被阻塞的写端），也不再允许写入
+  if(file->type == TYPE_PIPE_READ) {
+    file->pipe->read_open--;
+    if(file->pipe->read_open == 0) {
+      sem_v(&file->pipe->write_sem);
+    }
+  }
+  // 若写端全部被关闭，读端不再会被阻塞（会唤醒所有被阻塞的读端），读取管道中剩余的可读字节。
+  if(file->type == TYPE_PIPE_WRITE) {
+    file->pipe->write_open--;
+    if(file->pipe->write_open == 0) {
+      sem_v(&file->pipe->read_sem);
+    }
   }
 }
 
@@ -229,8 +251,8 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   }
   read_file->pipe = (pipe_t *)kalloc();
   write_file->pipe = read_file->pipe;
-  read_file->type = TYPE_PIPE;
-  write_file->type = TYPE_PIPE;
+  read_file->type = TYPE_PIPE_READ;
+  write_file->type = TYPE_PIPE_WRITE;
   // read_file->pipe = (pipe_t*)kalloc(); // 为pipe_t分配内存
   // write_file->pipe = read_file->pipe;
   read_file->readable = 1;
@@ -247,6 +269,6 @@ int fcreate_pipe(file_t **pread_file, file_t **pwrite_file) {
   write_file->pipe->write_open = 1;
   // 初始化信号量
   sem_init(&read_file->pipe->read_sem, 0);
-  sem_init(&read_file->pipe->write_sem, 1);
+  sem_init(&read_file->pipe->write_sem, 0);
   return 0;
 }

@@ -5,12 +5,11 @@
 int main() {
     printf("pipetest begins.\n");
     int fd[2];
-    char write_msg[130] = {0};
+    char write_msg[130];
     for(int i = 0; i < 129; i++) {
         write_msg[i] = 'a' + i % 26;
     }
     write_msg[129] = '\0';
-    printf("write_msg: %s\n", write_msg);
     char read_msg[128];
     int nbytes;
 
@@ -39,37 +38,32 @@ int main() {
 
         // 打印读取的数据
         read_msg[nbytes] = '\0'; // 添加字符串终止符
-        printf("Child received1: %s\n", read_msg);
+        printf("Child received: %s\n", read_msg);
 
-        // 从管道读取数据
+        // // 从管道读取数据
         nbytes = read(fd[0], read_msg, sizeof(read_msg));
+        if (nbytes < 0) {
+            printf("Son read from pipe failed in pipetest.\n");
+            return -1;
+        }
+
         // 打印读取的数据
         read_msg[nbytes] = '\0'; // 添加字符串终止符
         printf("Child received2: %s\n", read_msg);
-
-        // 从管道读取数据
-        nbytes = read(fd[0], read_msg, sizeof(read_msg));
-        // 打印读取的数据
-        read_msg[nbytes] = '\0'; // 添加字符串终止符
-        printf("Child received3: %s\n", read_msg);
 
         close(fd[0]); // 关闭读端
     } else {
         // 父进程
         close(fd[0]); // 关闭读端
 
-        // 向管道写入数据
-        if (write(fd[1], write_msg, strlen(write_msg)) != strlen(write_msg)) {
-            printf("Parent write from pipe failed in pipetest.\n");
-            return -1;
-        }
 
         // 向管道写入数据
         if (write(fd[1], write_msg, strlen(write_msg)) != strlen(write_msg)) {
             printf("Parent write from pipe failed in pipetest.\n");
             return -1;
         }
-
+        write(fd[1], write_msg, strlen(write_msg));
+        write(fd[1], write_msg, strlen(write_msg));
         printf("Parent finish writing to the pipe.\n");
 
         close(fd[1]); // 关闭写端
