@@ -100,7 +100,7 @@ int fread(file_t *file, void *buf, uint32_t size) {
     int read_size = 0;
     pipe_t *p = file->pipe;
     if(p->write_open == 0){
-      while (p->read_pos != p->write_pos) {
+      while (p->read_pos != p->write_pos && read_size < size) {
         ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
         if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
       }

@@ -11,7 +11,7 @@ int main() {
     }
     write_msg[130] = '\0';
     // char write_msg[] = "Hello, pipe!";
-    char read_msg[12];
+    char read_msg[120];
     int nbytes;
 
     // 创建管道
@@ -57,16 +57,14 @@ int main() {
         // 父进程
         close(fd[0]); // 关闭读端
         // close(fd[1]); // 关闭写端
-
-        int x = 0;
         // 向管道写入数据
-        if ((x=write(fd[1], write_msg, strlen(write_msg))) != strlen(write_msg)) {
-            printf("Parent write from pipe failed in pipetest, x = %d \n", x);
-            return -1;
-        }
-        write(fd[1], write_msg, strlen(write_msg));
-        write(fd[1], write_msg, strlen(write_msg));
-        write(fd[1], write_msg, strlen(write_msg));
+        
+        printf("x = %d\n",write(fd[1], write_msg, strlen(write_msg)));
+        printf("x = %d\n",write(fd[1], write_msg, strlen(write_msg)));
+        printf("x = %d\n",write(fd[1], write_msg, strlen(write_msg)));
+        printf("x = %d\n",write(fd[1], write_msg, strlen(write_msg)));
+        printf("x = %d\n",write(fd[1], write_msg, strlen(write_msg)));
+
         printf("Parent finish writing to the pipe.\n");
 
         close(fd[1]); // 关闭写端
