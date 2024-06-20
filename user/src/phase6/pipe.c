@@ -5,23 +5,17 @@
 int main() {
     printf("pipetest begins.\n");
     int fd[2];
-    char write_msg[130];
-    for(int i = 0; i < 130; i++) {
-        write_msg[i] = 'a' + i % 26;
-    }
-    write_msg[130] = '\0';
-    // char write_msg[] = "Hello, pipe!";
-    char read_msg[130];
+    // char write_msg[131];
+    // for(int i = 0; i < 130; i++) {
+    //     write_msg[i] = 'a' + i % 26;
+    // }
+    // write_msg[130] = '\0';
+    char write_msg[] = "";
+    char read_msg[200];
     int nbytes;
 
     // 创建管道
     if (pipe(fd) == -1) {
-        printf("create pipe failed in pipetest.\n");
-        return -1;
-    }
-
-    int fd2[2];
-    if (pipe(fd2) == -1) {
         printf("create pipe failed in pipetest.\n");
         return -1;
     }
@@ -38,13 +32,14 @@ int main() {
         for(int i=0;i<10;i++){
             // 从管道读取数据
             nbytes = read(fd[0], read_msg, sizeof(read_msg));
-            if (nbytes < 0) {
-                printf("Son read from pipe failed in pipetest.\n");
-                return -1;
-            }
-
+            printf("readlen = %d\n",nbytes);
             // 打印读取的数据
             read_msg[nbytes] = '\0'; // 添加字符串终止符
+            // for(int i=0;i<nbytes;i++){
+            //     if(read_msg[i] =='\0'){
+            //         read_msg[i] = ' ';
+            //     }
+            // }
             printf("Child received: %s\n", read_msg);
         }
 

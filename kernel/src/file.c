@@ -101,25 +101,27 @@ int fread(file_t *file, void *buf, uint32_t size) {
     int read_size = 0;
     pipe_t *p = file->pipe;
     if(p->write_open == 0){ // 写端全部关闭，读端不再会被阻塞（会唤醒所有被阻塞的读端），读取管道中剩余的可读字节。
-      while (p->read_pos != p->write_pos && read_size < size) {
-        ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
-        if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
-      }
-      return read_size;
+        while (p->read_pos != p->write_pos && read_size < size) {
+          ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
+          if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
+        }
+        return read_size;
     }
     while (read_size < size) {
         sem_p(&p->read_sem);
         sem_p(&p->mutex);
         // printf("read_pos: %d\n", p->read_pos);
         // printf("write_pos: %d\n", p->write_pos);
-        if (p->write_open == 0) { // 阻塞后被“无写者”唤醒，一直读到管道为空
-            sem_v(&p->mutex);
-            return read_size;
+        if(p->write_open == 0){ // 写端全部关闭，读端不再会被阻塞（会唤醒所有被阻塞的读端），读取管道中剩余的可读字节。
+          while (p->read_pos != p->write_pos && read_size < size) {
+            ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
+            if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
+          }
+          return read_size;
         }
-          
+        
         ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
         if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
-
         sem_v(&p->mutex);
         sem_v(&p->write_sem);
     }
@@ -152,6 +154,7 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
     }
     int write_size = 0;
     pipe_t *p = file->pipe;
+    // printf("size: %d\n", size);
     while (write_size < size) { // 写完size才返回
         sem_p(&p->write_sem); // 若管道满，阻塞，待会儿再写
         sem_p(&p->mutex);
@@ -163,7 +166,8 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
 
         p->buffer[p->write_pos++] = ((char*)buf)[write_size++];
         if (p->write_pos == PIPE_SIZE) p->write_pos = 0;
-
+        // printf("read_pos, write_pos: %d,%d\n", p->read_pos, p->write_pos);
+        // printf("write_size: %d\n", write_size);
         sem_v(&p->mutex);
         sem_v(&p->read_sem); 
     }
