@@ -40,6 +40,9 @@
         "kernel/src/trap.S",
         "kernel/src/vme.c",
         "utils/mkfs.c",
+        "user/ulib/syscall.c",
+        "user/include/ulib.h",
+        "lib/include/sysnum.h",
         "lib/include/lib.h"
     ],
     "tests": {},
