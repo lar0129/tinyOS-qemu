@@ -156,23 +156,28 @@ int sys_wait(int *status) {
   // // TODO(); // Lab2-3,
   // sys_sleep(250);
   // return 0;
-  if(proc_curr()->child_num == 0) {
+  proc_t *p = proc_curr();
+  if(p->child_num == 0) {
     return -1;
   }
-  proc_t *zombie;
-  // while((zombie = proc_findzombie(proc_curr())) == NULL) {
-  //   proc_yield();
-  // }
-  sem_p(&proc_curr()->zombie_sem); // 找不到僵尸进程就阻塞
-  zombie = proc_findzombie(proc_curr());
-  assert(zombie != NULL);
+  int zombie_pid = -1;
+  int child_num = p->child_num;
+  for(int i=0;i<child_num;i++) {
+    proc_t *zombie;
+    // while((zombie = proc_findzombie(proc_curr())) == NULL) {
+    //   proc_yield();
+    // }
+    sem_p(&p->zombie_sem); // 找不到僵尸进程就阻塞
+    zombie = proc_findzombie(p);
+    assert(zombie != NULL);
 
-  if (status!=NULL){
-    *status = zombie->exit_code;
+    if (status!=NULL){
+      *status = zombie->exit_code;
+    }
+    zombie_pid = zombie->pid;
+    proc_free(zombie);
+    (proc_curr()->child_num)--;
   }
-  int zombie_pid = zombie->pid;
-  proc_free(zombie);
-  (proc_curr()->child_num)--;
   return zombie_pid;
 
   

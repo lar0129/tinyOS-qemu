@@ -93,9 +93,11 @@ int fread(file_t *file, void *buf, uint32_t size) {
   if(file->type == TYPE_PIPE_WRITE) panic("fread: TYPE_PIPE_WRITE\n");
 
   if(file->type == TYPE_PIPE_READ || file->type == TYPE_FIFO){
-    if(file->type == TYPE_FIFO ) {
-      sem_v(&file->pipe->read_wait);
-      sem_p(&file->pipe->write_wait);
+    if(file->type == TYPE_FIFO) {
+      sem_v(&file->pipe->write_wait);
+      if(file->pipe->write_open == 0){
+        sem_p(&file->pipe->read_wait);
+      }
     }
     int read_size = 0;
     pipe_t *p = file->pipe;
@@ -107,6 +109,9 @@ int fread(file_t *file, void *buf, uint32_t size) {
         return read_size;
     }
     while (read_size < size) {
+        if(p->read_pos == p->write_pos && read_size>0) { 
+          return read_size;
+        }
         sem_p(&p->read_sem); // 第一次读空，阻塞
         sem_p(&p->mutex);
         if(p->write_open == 0){ // 写端全部关闭，读端不再会被阻塞（会唤醒所有被阻塞的读端），读取管道中剩余的可读字节。
@@ -152,9 +157,11 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
   if(file->type == TYPE_PIPE_READ) panic("fwrite: TYPE_PIPE_READ\n");
 
   if(file->type == TYPE_PIPE_WRITE || file->type == TYPE_FIFO){
-    if(file->type == TYPE_FIFO ) {
-      sem_v(&file->pipe->write_wait);
-      sem_p(&file->pipe->read_wait);
+    if(file->type == TYPE_FIFO) {
+      sem_v(&file->pipe->read_wait);
+      if(file->pipe->read_open == 0){
+        sem_p(&file->pipe->write_wait);
+      }
     }
     int write_size = 0;
     pipe_t *p = file->pipe;
@@ -229,6 +236,10 @@ file_t *fdup(file_t *file) {
   }
   if(file->type == TYPE_PIPE_WRITE) {
     file->pipe->write_open++;
+  }
+  if(file->type == TYPE_FIFO) {
+    file->pipe->read_open += (file->readable);
+    file->pipe->write_open += (file->writable);
   }
   return file;
 }
