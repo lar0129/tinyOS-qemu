@@ -6,7 +6,6 @@
 #define TOTAL_FILE 128
 
 file_t files[TOTAL_FILE]; //代表整个操作系统可以使用的file_t就这么多
-pipe_t pipe; //代表整个操作系统可以使用的pipe_t就这么多
 
 static file_t *falloc() {
   // Lab3-1: find a file whose ref==0, init it, inc ref and return it, return NULL if none
@@ -108,7 +107,7 @@ int fread(file_t *file, void *buf, uint32_t size) {
         return read_size;
     }
     while (read_size < size) {
-        sem_p(&p->read_sem);
+        sem_p(&p->read_sem); // 第一次读空，阻塞
         sem_p(&p->mutex);
         // printf("read_pos: %d\n", p->read_pos);
         // printf("write_pos: %d\n", p->write_pos);
@@ -117,6 +116,11 @@ int fread(file_t *file, void *buf, uint32_t size) {
             ((char*)buf)[read_size++] = p->buffer[p->read_pos++];
             if (p->read_pos == PIPE_SIZE) p->read_pos = 0;
           }
+          sem_v(&p->mutex);
+          return read_size;
+        }
+        if(p->read_pos == p->write_pos && read_size>0) { 
+          sem_v(&p->mutex);
           return read_size;
         }
         
@@ -156,6 +160,10 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
     pipe_t *p = file->pipe;
     // printf("size: %d\n", size);
     while (write_size < size) { // 写完size才返回
+        if (p->read_open == 0) { // 无读者，不再允许写入
+            sem_v(&p->mutex);
+            return write_size; // Read end closed
+        }
         sem_p(&p->write_sem); // 若管道满，阻塞，待会儿再写
         sem_p(&p->mutex);
 
@@ -258,7 +266,7 @@ file_t * fcreate_pipe(int mod) {
     file->readable = 1;
     file->writable = 0;
     // pipe_t p = {};
-    file->pipe = &pipe;
+    file->pipe = (pipe_t *)kalloc(sizeof(pipe_t));
     file->pipe->read_pos = 0;
     file->pipe->write_pos = 0;
     file->pipe->read_open = 1;
@@ -288,7 +296,7 @@ int fcreate_fifo(const char *path, int mode){
       panic("fcreate_fifo: iopen failed\n");
       return -1;
     }
-    pipe_t *p = &pipe;
+    pipe_t *p = (pipe_t *)kalloc(sizeof(pipe_t));
     // printf("p: %d\n", p);
     p->read_open = 0;
     p->write_open = 0;
