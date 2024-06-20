@@ -109,7 +109,7 @@ int fread(file_t *file, void *buf, uint32_t size) {
         return read_size;
     }
     while (read_size < size) {
-        if(p->read_pos == p->write_pos && read_size>0) { 
+        if(p->read_pos == p->write_pos && read_size>0 && file->type == TYPE_FIFO) { 
           return read_size;
         }
         sem_p(&p->read_sem); // 第一次读空，阻塞
