@@ -161,8 +161,8 @@ int sys_wait(int *status) {
     return -1;
   }
   int zombie_pid = -1;
-  int child_num = p->child_num;
-  for(int i=0;i<child_num;i++) {
+  // int child_num = p->child_num;
+  // for(int i=0;i<child_num;i++) {
     proc_t *zombie;
     // while((zombie = proc_findzombie(proc_curr())) == NULL) {
     //   proc_yield();
@@ -177,7 +177,7 @@ int sys_wait(int *status) {
     zombie_pid = zombie->pid;
     proc_free(zombie);
     (proc_curr()->child_num)--;
-  }
+  // }
   return zombie_pid;
 
   
