@@ -1,4 +1,4 @@
-# 基于Qemu的toyOS——c++实现的迷你操作系统
+# toyOS based on Qemu - a mini operating system implemented in C++
 
 1. 操作系统的底层交互，包括MBR，ELF文件加载，中断机制。
 2. 操作系统支持虚拟内存管理。
