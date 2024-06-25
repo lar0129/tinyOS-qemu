@@ -60,8 +60,8 @@ int main() {
     } else if (writer_pid == 0) {
         // printf("test2\n");
         // In writer process
-        writer_process();
-        printf("writer process ends.\n");
+        // writer_process();
+        // printf("writer process ends.\n");
         exit(0);
     }
     // 两个子进程
@@ -74,7 +74,8 @@ int main() {
         // In reader process
         // printf("test3\n");
         reader_process();
-        // reader_process();
+
+        reader_process();
         printf("reader process ends.\n");
         // reader_and_writer_process();
         // printf("reader_and_writer process ends.\n");
